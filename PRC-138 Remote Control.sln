@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29926.136
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PRC-138 Remote Control", "PRC-138 Remote Control.csproj", "{9985D26A-174D-42BE-B35B-7577316AFEF9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9985D26A-174D-42BE-B35B-7577316AFEF9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9985D26A-174D-42BE-B35B-7577316AFEF9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9985D26A-174D-42BE-B35B-7577316AFEF9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9985D26A-174D-42BE-B35B-7577316AFEF9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {46BF7F91-0792-4592-82C5-173BC002A9C5}
+	EndGlobalSection
+EndGlobal

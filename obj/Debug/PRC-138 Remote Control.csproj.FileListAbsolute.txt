@@ -1,0 +1,17 @@
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\obj\Debug\PRC_138_Remote_Control.Properties.Resources.resources
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\obj\Debug\PRC-138 Remote Control.csproj.GenerateResource.cache
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\obj\Debug\PRC-138 Remote Control.csproj.CoreCompileInputs.cache
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\obj\Debug\PRC_138_Remote_Control.frmConnectionSettings.resources
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\obj\Debug\PRC_138_Remote_Control.frmAbout.resources
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\obj\Debug\PRC_138_Remote_Control.frmMain.resources
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\obj\Debug\PRC_138_Remote_Control.frmConfiguration.resources
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\bin\Debug\Falcon Radio Remote Control.exe.config
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\bin\Debug\Falcon Radio Remote Control.exe
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\bin\Debug\Falcon Radio Remote Control.pdb
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\obj\Debug\Falcon Radio Remote Control.exe
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\obj\Debug\Falcon Radio Remote Control.pdb
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\bin\Debug\Falcon Radio Remote Control.exe.manifest
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\bin\Debug\Falcon Radio Remote Control.application
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\obj\Debug\Falcon Radio Remote Control.exe.manifest
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\obj\Debug\Falcon Radio Remote Control.application
+C:\Users\CamHosken\source\repos\PRC-138 Remote Control\obj\Debug\PRC-138 Remote Control.csprojAssemblyReference.cache
