@@ -1,0 +1,230 @@
+{
+  "Version": "falconclone/1",
+  "OperatingState": 1,
+  "OperatingMode": "Ssb",
+  "OperatingChannel": 0,
+  "OperatingHopNet": 0,
+  "BookState": 1,
+  "Selfs": [
+    {
+      "Name": "ZZZ",
+      "Group": 0
+    },
+    {
+      "Name": "TST",
+      "Group": 1
+    }
+  ],
+  "Individuals": [
+    {
+      "Name": "AAA",
+      "Group": 1,
+      "AssociatedSelf": "TST"
+    },
+    {
+      "Name": "BOB",
+      "Group": 2,
+      "AssociatedSelf": "ZZZ"
+    }
+  ],
+  "Nets": [
+    {
+      "Name": "NT1",
+      "Group": 1,
+      "AssociatedSelf": "TST",
+      "Members": [
+        "AAA",
+        "TST"
+      ]
+    },
+    {
+      "Name": "NET2",
+      "Group": 2,
+      "AssociatedSelf": "ZZZ",
+      "Members": [
+        "BOB"
+      ]
+    }
+  ],
+  "GroupState": 1,
+  "ChannelGroups": [],
+  "ScheduleState": 1,
+  "Schedules": [
+    {
+      "Kind": "SOUND",
+      "Address": "ZZZ",
+      "Interval": "03:00",
+      "Start": "13:02"
+    },
+    {
+      "Kind": "EXCHANGE",
+      "Address": "BOB",
+      "Interval": "01:00",
+      "Start": "22:34"
+    }
+  ],
+  "ChannelState": 1,
+  "Channels": [],
+  "DefaultChannelsElided": false,
+  "HopNetState": 1,
+  "HopNets": [],
+  "ExcludeState": 1,
+  "ExcludeBands": [],
+  "ModemState": 1,
+  "ModemPresets": [],
+  "MessageState": 1,
+  "Messages": [],
+  "SettingState": 1,
+  "Settings": [],
+  "Lockouts": {
+    "State": 1,
+    "Rows": [
+      {
+        "Family": "Program",
+        "Section": "Ssb",
+        "Item": "CHAN",
+        "State": "Lock"
+      },
+      {
+        "Family": "Program",
+        "Section": "Ssb",
+        "Item": "FILL",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Program",
+        "Section": "Ssb",
+        "Item": "CFIG",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Program",
+        "Section": "Ssb",
+        "Item": "DATA",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Program",
+        "Section": "Ssb",
+        "Item": "KEYS",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Program",
+        "Section": "Hop",
+        "Item": "NET",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Program",
+        "Section": "Hop",
+        "Item": "EXCLUDE",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Program",
+        "Section": "Hop",
+        "Item": "TX_POWER",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Program",
+        "Section": "Hop",
+        "Item": "DATA",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Program",
+        "Section": "Eam",
+        "Item": "ADDRESS",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Program",
+        "Section": "Eam",
+        "Item": "CHGROUP",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Program",
+        "Section": "Eam",
+        "Item": "CFIG",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Program",
+        "Section": "Eam",
+        "Item": "LQA",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Select",
+        "Section": "Ssb",
+        "Item": "DATA",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Select",
+        "Section": "Ssb",
+        "Item": "KEY",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Select",
+        "Section": "Ssb",
+        "Item": "MODE",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Select",
+        "Section": "Ssb",
+        "Item": "TMP_CHAN",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Select",
+        "Section": "Ssb",
+        "Item": "BFO",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Select",
+        "Section": "Hop",
+        "Item": "DATA",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Select",
+        "Section": "Hop",
+        "Item": "KEY",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Select",
+        "Section": "Eam",
+        "Item": "DATA",
+        "State": "Unlock"
+      },
+      {
+        "Family": "Select",
+        "Section": "Eam",
+        "Item": "KEY",
+        "State": "Unlock"
+      }
+    ]
+  },
+  "ManifestDomains": [
+    {},
+    {},
+    {},
+    {},
+    {},
+    {},
+    {},
+    {},
+    {},
+    {},
+    {}
+  ],
+  "IncompleteDomains": []
+}

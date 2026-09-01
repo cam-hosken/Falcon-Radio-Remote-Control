@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Operate spine (plan §4.1, reordered by the GUI rejigger S1-S5; UI tweaks
+    round 2 A1-A4, round 3 P1/P2/N1): the MODE and PWR rows share a
+    fixed-width 52-dp label column so the segment columns align vertically
+    (A1); the tune stack is back BESIDE those rows (P1 — Retune Coupler
+    right-aligned on the MODE row, the tune-status chip right-aligned on the
+    PWR row, no row of its own), both at ONE fixed width (P2). This reverses
+    the round-2 A4 fallback: N1's uniform segment widths plus the owner's
+    wide bench phone (V4) make the side-by-side stack fit; the manager
+    verifies on-device. THREE rows since round-4 AA1: the keyline chip left
+    its own bottom row and joined the RIGHT STACK — right-aligned on the
+    connection-status row, directly under the tune chip.
+    BindingContext is inherited from the page (OperateViewModel); every
+    radio-backed binding is one-way and the highlights move only on the
+    radio's confirmed answers (§2.4).
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             xmlns:session="clr-namespace:Falcon.App.Core.Session;assembly=Falcon.App.Core"
+             x:Class="Falcon.App.Views.OperateParts.SpineView"
+             x:DataType="vm:OperateViewModel">
+
+    <ContentView.Resources>
+        <!-- P2: ONE width for the Retune button and the tune chip, sized to
+             the widest content of either ("Retune Coupler" / the chip's
+             "Tune Complete" beside its 16-dp activity indicator). -->
+        <x:Double x:Key="TuneStackWidth">150</x:Double>
+    </ContentView.Resources>
+
+    <Border Style="{StaticResource Card}">
+        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+
+            <!-- Mode segments (S1/S2) — order SSB HOP ALE. A1: fixed 52-dp
+                 label column shared with the PWR row below, so both segment
+                 columns start at the same x. N1: the three mode and three
+                 power buttons all carry the shared SegmentWidth, so the two
+                 rows are one six-button uniform grid. Column 2 is the elastic
+                 gap; column 3 carries the P1 tune stack. -->
+            <Grid Grid.Row="0" ColumnDefinitions="52,Auto,*,Auto" VerticalOptions="Center">
+                <Label Text="MODE" Style="{StaticResource SubHeading}" VerticalOptions="Center" />
+                <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                <Button Text="SSB" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                        Command="{Binding Mode.SelectModeCommand}" CommandParameter="Ssb"
+                        SemanticProperties.Description="Select SSB mode">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding Mode.IsSsbActive}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Text="HOP" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                        Command="{Binding Mode.SelectModeCommand}" CommandParameter="Hop"
+                        SemanticProperties.Description="Select HOP mode">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding Mode.IsHopActive}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Text="ALE" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                        Command="{Binding Mode.SelectModeCommand}" CommandParameter="Ale"
+                        SemanticProperties.Description="Select ALE mode">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding Mode.IsAleActive}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <ActivityIndicator IsRunning="{Binding Mode.IsSwitching}"
+                                   IsVisible="{Binding Mode.IsSwitching}"
+                                   WidthRequest="24" HeightRequest="24" VerticalOptions="Center"
+                                   SemanticProperties.Description="Mode change in progress" />
+                </HorizontalStackLayout>
+
+                <!-- P1 (upper half of the tune stack): Retune Coupler,
+                     right-aligned on the MODE row. Enabled in SSB and ALE
+                     when Ready with no tune in flight; greyed in HOP (S6). -->
+                <Button Grid.Column="3" Text="Retune Coupler" Style="{StaticResource Segment}"
+                        WidthRequest="{StaticResource TuneStackWidth}"
+                        Command="{Binding Ssb.Coupler.TuneCommand}" HorizontalOptions="End"
+                        SemanticProperties.Description="Tune the antenna coupler (transmits)" />
+            </Grid>
+
+            <!-- Power segments + cutback note, with the tune chip beside them
+                 (P1 lower half). -->
+            <Grid Grid.Row="1" ColumnDefinitions="52,Auto,*,Auto" VerticalOptions="Center">
+                <Label Text="PWR" Style="{StaticResource SubHeading}" VerticalOptions="Center" />
+                <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                <Button Text="Low" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                        Command="{Binding Power.SetPowerCommand}" CommandParameter="Low"
+                        SemanticProperties.Description="Set power low">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding Power.IsLowActive}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Text="Med" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                        Command="{Binding Power.SetPowerCommand}" CommandParameter="Medium"
+                        SemanticProperties.Description="Set power medium">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding Power.IsMedActive}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Text="High" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                        Command="{Binding Power.SetPowerCommand}" CommandParameter="High"
+                        SemanticProperties.Description="Set power high">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding Power.IsHiActive}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                </HorizontalStackLayout>
+
+                <!-- The cutback note lives in the elastic column so it can
+                     never push the segment grid out of alignment. -->
+                <!-- Round 10 (§3): the STATUS tier. The warn COLOR stays
+                     inline — the style is the font role, the color is this
+                     control's state. -->
+                <Label Grid.Column="2" Text="⚠ thermal cutback" Style="{StaticResource StatusText}"
+                       TextColor="{AppThemeBinding Light={StaticResource WarnTextLight}, Dark={StaticResource WarnTextDark}}"
+                       VerticalOptions="Center" Margin="8,0,0,0"
+                       LineBreakMode="TailTruncation"
+                       IsVisible="{Binding Power.ShowCutback}"
+                       SemanticProperties.Description="Power cutback active" />
+
+                <!-- P1/P2 (lower half of the tune stack): the tune-status
+                     chip, right-aligned on the PWR row at the SAME fixed
+                     width as the Retune button above it. One multi-state
+                     display with TEXT + color (— / Tuning… / Tune Complete /
+                     Tune Marginal / Tune Fail); FAULT is a normal outcome,
+                     not an error flow — the button never disables on it.
+                     State fills carry white text in BOTH themes (App.xaml). -->
+                <Border Grid.Column="3" Style="{StaticResource Chip}"
+                        WidthRequest="{StaticResource TuneStackWidth}"
+                        HorizontalOptions="End" VerticalOptions="Center"
+                        AutomationId="TuneChip"
+                        SemanticProperties.Description="Coupler tune status">
+                <Border.Triggers>
+                    <DataTrigger TargetType="Border" Binding="{Binding Status.TuneChip}"
+                                 Value="{x:Static vm:TuneChipState.Complete}">
+                        <Setter Property="BackgroundColor" Value="{StaticResource ChipOkColor}" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Border" Binding="{Binding Status.TuneChip}"
+                                 Value="{x:Static vm:TuneChipState.CompleteMarginal}">
+                        <Setter Property="BackgroundColor" Value="{StaticResource ChipWarnColor}" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Border" Binding="{Binding Status.TuneChip}"
+                                 Value="{x:Static vm:TuneChipState.Fault}">
+                        <Setter Property="BackgroundColor" Value="{StaticResource ChipErrColor}" />
+                    </DataTrigger>
+                </Border.Triggers>
+                <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
+                    <ActivityIndicator IsRunning="{Binding Status.IsTuning}"
+                                       IsVisible="{Binding Status.IsTuning}"
+                                       WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                    <Label Text="{Binding Status.TuneChipText}"
+                           Style="{StaticResource StatusText}"
+                           VerticalOptions="Center">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label" Binding="{Binding Status.TuneChip}"
+                                         Value="{x:Static vm:TuneChipState.Complete}">
+                                <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                            </DataTrigger>
+                            <DataTrigger TargetType="Label" Binding="{Binding Status.TuneChip}"
+                                         Value="{x:Static vm:TuneChipState.CompleteMarginal}">
+                                <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                            </DataTrigger>
+                            <DataTrigger TargetType="Label" Binding="{Binding Status.TuneChip}"
+                                         Value="{x:Static vm:TuneChipState.Fault}">
+                                <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                </HorizontalStackLayout>
+                </Border>
+            </Grid>
+
+            <!-- Round-4 AA1: the connection-status row STAYS where it is, and
+                 the keyline chip joins the right stack ON it — right-aligned
+                 directly under the tune chip, so the right column reads
+                 Retune Coupler / tune chip / keyline chip. The chip keeps its
+                 NATURAL width (it is not part of the P2 tune-stack width pair
+                 — only its RIGHT edge aligns). -->
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+
+            <!-- A3 (S3): connection status — dot + port + phase text. -->
+            <HorizontalStackLayout Spacing="8" VerticalOptions="Center"
+                                   SemanticProperties.Description="Connection status">
+                <Ellipse WidthRequest="14" HeightRequest="14" VerticalOptions="Center"
+                         Fill="{StaticResource DotIdleColor}">
+                    <Ellipse.Triggers>
+                        <DataTrigger TargetType="Ellipse" Binding="{Binding Session.Phase}"
+                                     Value="{x:Static session:SessionPhase.Ready}">
+                            <Setter Property="Fill" Value="{StaticResource DotOkColor}" />
+                        </DataTrigger>
+                        <DataTrigger TargetType="Ellipse" Binding="{Binding Session.Phase}"
+                                     Value="{x:Static session:SessionPhase.Connecting}">
+                            <Setter Property="Fill" Value="{StaticResource DotBusyColor}" />
+                        </DataTrigger>
+                        <DataTrigger TargetType="Ellipse" Binding="{Binding Session.Phase}"
+                                     Value="{x:Static session:SessionPhase.Reconnecting}">
+                            <Setter Property="Fill" Value="{StaticResource DotBusyColor}" />
+                        </DataTrigger>
+                        <DataTrigger TargetType="Ellipse" Binding="{Binding Session.Phase}"
+                                     Value="{x:Static session:SessionPhase.Failed}">
+                            <Setter Property="Fill" Value="{StaticResource DotErrColor}" />
+                        </DataTrigger>
+                    </Ellipse.Triggers>
+                </Ellipse>
+                <Label Text="{Binding Session.PortDisplay}" Style="{StaticResource StatusText}" VerticalOptions="Center" />
+                <Label Text="{Binding Session.PhaseText}" Style="{StaticResource StatusText}" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+
+            <!-- A3 (S4): keyline — display-only indicator, never an input
+                 (plan §3). AA1: right-aligned in the spine's right column. -->
+                <Border Grid.Column="1" Style="{StaticResource Chip}"
+                        HorizontalOptions="End" VerticalOptions="Center"
+                        SemanticProperties.Description="Keyline indicator">
+                    <Label Text="{Binding Status.KeylineText}" Style="{StaticResource StatusText}"
+                           VerticalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource SecondaryTextLight}, Dark={StaticResource SecondaryTextDark}}">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label" Binding="{Binding Status.IsTransmitting}" Value="True">
+                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource ErrorTextLight}, Dark={StaticResource ErrorTextDark}}" />
+                            </DataTrigger>
+                            <MultiTrigger TargetType="Label">
+                                <MultiTrigger.Conditions>
+                                    <BindingCondition Binding="{Binding Status.IsKeylineConfirmed}" Value="True" />
+                                    <BindingCondition Binding="{Binding Status.IsTransmitting}" Value="False" />
+                                </MultiTrigger.Conditions>
+                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
+                            </MultiTrigger>
+                        </Label.Triggers>
+                    </Label>
+                </Border>
+            </Grid>
+
+        </Grid>
+    </Border>
+</ContentView>

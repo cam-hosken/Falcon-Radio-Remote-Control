@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Mode settings page (GUI rejigger N4 — SKELETON): the Operate page's
+    three-pane organization. The mode buttons (SSB / HOP / ALE, S2 order)
+    bind the SAME singleton ModeViewModel as the Operate spine — they
+    GENUINELY switch the radio (settings are mode-scoped on the wire), and
+    the visible pane follows the CONFIRMED mode exactly like Operate does.
+    Constitution: highlight and pane visibility move only on the radio's
+    confirmed mode report; intent goes through SelectModeCommand.
+
+    Wave-1 scope: each pane is a labeled placeholder — Wave 2 fills the
+    settings contents (lazy load + cache arrives with them; empty panes
+    have nothing to load).
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             xmlns:parts="clr-namespace:Falcon.App.Views.SettingsParts"
+             x:Class="Falcon.App.Views.ModeSettingsPage"
+             x:DataType="vm:ModeViewModel"
+             Title="Mode settings">
+
+    <Grid RowDefinitions="Auto,*" Padding="{OnIdiom Default=12, Phone=8}" RowSpacing="{OnIdiom Default=12, Phone=8}">
+
+        <!-- Mode selector: same VM, same rules as the Operate spine. N4: the
+             three buttons this page owns directly carry the shared
+             SegmentWidth, like the spine's.
+             ROUND-4 AF1 (defect fix): the strip now carries the SPINE's
+             GEOMETRY verbatim, so the three buttons do not jump when the
+             operator switches Operate ↔ Mode settings. That means the same
+             fixed 52-dp leading label column (the spine's A1 column, which
+             this page had replaced with a 4-dp label margin), the same
+             Spacing=6 button stack in the next column, and the elastic third
+             column the spine hangs its tune stack in — so the buttons sit at
+             the same x and the same y on both pages. The page's old
+             VerticalStackLayout wrapper is gone: it held one child.
+             Verified by UIA: identical rects on both pages. -->
+        <Border Style="{StaticResource Card}">
+            <Grid ColumnDefinitions="52,Auto,*" VerticalOptions="Center">
+                    <Label Text="MODE" Style="{StaticResource SubHeading}" VerticalOptions="Center" />
+                    <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                    <Button Text="SSB" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                            Command="{Binding SelectModeCommand}" CommandParameter="Ssb"
+                            SemanticProperties.Description="Select SSB mode">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding IsSsbActive}" Value="True">
+                                <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                    <Button Text="HOP" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                            Command="{Binding SelectModeCommand}" CommandParameter="Hop"
+                            SemanticProperties.Description="Select HOP mode">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding IsHopActive}" Value="True">
+                                <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                    <Button Text="ALE" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                            Command="{Binding SelectModeCommand}" CommandParameter="Ale"
+                            SemanticProperties.Description="Select ALE mode">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding IsAleActive}" Value="True">
+                                <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                    <ActivityIndicator IsRunning="{Binding IsSwitching}"
+                                       IsVisible="{Binding IsSwitching}"
+                                       WidthRequest="24" HeightRequest="24" VerticalOptions="Center"
+                                       SemanticProperties.Description="Mode change in progress" />
+                    </HorizontalStackLayout>
+            </Grid>
+        </Border>
+
+        <!-- Pane area: visible pane follows the CONFIRMED mode. -->
+        <Grid Grid.Row="1">
+
+            <!-- Placeholder: visible until the radio confirms a mode. -->
+            <Border Style="{StaticResource Card}" Padding="24" IsVisible="True">
+                <Border.Triggers>
+                    <DataTrigger TargetType="Border" Binding="{Binding IsSsbActive}" Value="True">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Border" Binding="{Binding IsHopActive}" Value="True">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Border" Binding="{Binding IsAleActive}" Value="True">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                </Border.Triggers>
+                <VerticalStackLayout Spacing="6" VerticalOptions="Center" HorizontalOptions="Center">
+                    <Label Text="Mode settings" Style="{StaticResource EmptyPaneHint}" HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Per-mode settings panes (Wave 2 content), split into ContentViews
+                 for parallel ownership. Visibility follows the CONFIRMED mode
+                 (bindings resolve against the page's ModeViewModel). -->
+            <parts:SsbSettingsPaneView IsVisible="{Binding IsSsbActive}" />
+            <parts:HopSettingsPaneView IsVisible="{Binding IsHopActive}" />
+            <parts:AleSettingsPaneView IsVisible="{Binding IsAleActive}" />
+
+        </Grid>
+    </Grid>
+</ContentPage>

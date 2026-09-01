@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Scan channel groups card — ALE settings pane (Mode settings → ALE), the
+    second of the two X8 programming cards (plan-ale-programming.md §4.5).
+    Same ModemPresetsView skeleton and the same self-binding code-behind.
+
+      "Program"  LEFT, DEFAULT — the VERTICAL group spinner (0-9, wrapping)
+                 beside the picked group's channel rows, each with a Remove,
+                 and one add-channel row.
+      "Groups"   RIGHT — ten READ-ONLY rows, the same three-state rendering.
+
+    Two picker idioms, deliberately different (the house rule):
+    - the VERTICAL ▲/▼ spinner is TARGET IDENTITY — which group the card is
+      editing — so a spin is an EDITOR LANDING and sends `CHG g`;
+    - a HORIZONTAL ◀/▶ wheel would be a pending selection. There is none on
+      this card: the group spinner is identity and the channel is typed.
+
+    Three states, never conflated (the AleChannelGroup contract): "—" when the
+    group has NOT been queried this session, "No channels in this group" when
+    the radio has CONFIRMED it empty (an empty group answers nothing at all),
+    and the rows themselves in the radio's own order.
+
+    NO blue ValueDisplay for radio state and NO Refresh button: the spinner
+    re-reads on every landing, and the Groups tab is the lazy tier that loads
+    all ten once per session. Writes share the ONE programming gate with the
+    address card and each closes with a `CHG g` read — a duplicate ADDC is
+    silently ignored by the radio, so the closing read shows an unchanged list
+    and the card invents no error.
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             x:Class="Falcon.App.Views.SettingsParts.AleScanGroupsView"
+             x:DataType="vm:AleScanGroupsViewModel">
+    <ContentView.Resources>
+        <!-- Row-local cell widths (rule K), shared by the picked-group rows
+             and the Groups tab so the two renderings line up. -->
+        <x:Double x:Key="GroupWidthNumber">36</x:Double>
+        <x:Double x:Key="GroupWidthChannel">44</x:Double>
+    </ContentView.Resources>
+
+    <Border Style="{StaticResource Card}">
+        <VerticalStackLayout Spacing="10">
+
+            <!-- ROUND 11 §3: the heading reads "Channel groups". -->
+            <Label Text="Channel groups" Style="{StaticResource CardHeading}" />
+
+            <Label Style="{StaticResource Caption}" Text="{Binding DisabledReason}"
+                   IsVisible="{Binding HasDisabledReason}" />
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                <Button Text="Program" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                        Command="{Binding OpenProgramTabCommand}"
+                        SemanticProperties.Description="Program tab (edit one group's channels)">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsGroupsTabOpen}" Value="False">
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Grid.Column="1" Text="Groups" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                        Command="{Binding OpenGroupsTabCommand}"
+                        SemanticProperties.Description="Groups tab (all ten groups, read-only)">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsGroupsTabOpen}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </Grid>
+
+            <VerticalStackLayout Spacing="10" IsEnabled="{Binding AreControlsEnabled}">
+
+                <!-- ========= Program tab ========= -->
+                <VerticalStackLayout Spacing="10" IsVisible="True">
+                    <VerticalStackLayout.Triggers>
+                        <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsGroupsTabOpen}" Value="True">
+                            <Setter Property="IsVisible" Value="False" />
+                        </DataTrigger>
+                    </VerticalStackLayout.Triggers>
+
+                    <!-- The spinner in column 0, the picked group's channel
+                         rows BESIDE it in the star column (the channel-editor
+                         CH/EC shape). A spin READS the group it lands on. -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="0">
+                            <Button Text="▲" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding GroupUpCommand}"
+                                    SemanticProperties.Description="Next channel group — re-reads it from the radio (CHG g)" />
+                            <!-- Round 10 §3: the spinner digit is the named
+                                 SpinnerDigit style; the width stays here. -->
+                            <Label Text="{Binding PickedGroupText}"
+                                   Style="{StaticResource SpinnerDigit}"
+                                   WidthRequest="44" />
+                            <Button Text="▼" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding GroupDownCommand}"
+                                    SemanticProperties.Description="Previous channel group — re-reads it from the radio (CHG g)" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                            <Label Text="Channels" Style="{StaticResource CellHeading}" />
+
+                            <VerticalStackLayout Spacing="6"
+                                                 BindableLayout.ItemsSource="{Binding ChannelRows}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:AleChannelRow">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                            <Label Text="{Binding ChannelText}" Style="{StaticResource CellValue}"
+                                                   WidthRequest="{StaticResource GroupWidthChannel}"
+                                                   VerticalOptions="Center"
+                                                   SemanticProperties.Description="Stored scan channel" />
+                                            <Button Grid.Column="2" Text="Remove" Style="{StaticResource Segment}"
+                                                    Command="{Binding Remove}"
+                                                    CommandParameter="{Binding ChannelText}"
+                                                    SemanticProperties.Description="Remove this channel from the group" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+
+                            <!-- State 1: never queried this session. -->
+                            <Label Style="{StaticResource Caption}"
+                                   IsVisible="{Binding IsPickedGroupUnqueried}"
+                                   Text="—" />
+                            <!-- State 2: queried and CONFIRMED empty. -->
+                            <Label Style="{StaticResource Caption}"
+                                   IsVisible="{Binding IsPickedGroupEmpty}"
+                                   Text="{x:Static vm:AleScanGroupsViewModel.EmptyGroupCaption}" />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <!-- Add channels — ROUND 11 §5: the box takes MULTIPLE
+                         space-separated channels (the HOP LIST add box's
+                         idiom). Client-validated 0-99 ALL-OR-NOTHING, naming
+                         the offending token; N valid tokens go out as N
+                         sequential `ADDC g ch`, each with its own outcome.
+                         The numeric keyboard and the 2-character cap are GONE
+                         with the single-channel box — both would make a
+                         space-separated list untypeable. -->
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                        <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Add channel" />
+                        <Entry Grid.Column="1"
+                               Placeholder="{x:Static vm:AleScanGroupsViewModel.AddChannelsPlaceholder}"
+                               Text="{Binding AddChannelInput, Mode=TwoWay}"
+                               ReturnCommand="{Binding AddChannelCommand}"
+                               SemanticProperties.Description="Channels to add to the picked group, space-separated" />
+                        <!-- Round 10 §3: ACTION class — DE-PINNED, natural. -->
+                        <Button Grid.Column="2" Text="Add" Style="{StaticResource Segment}"
+                                Command="{Binding AddChannelCommand}"
+                                SemanticProperties.Description="Add this channel to the picked group" />
+                    </Grid>
+                </VerticalStackLayout>
+
+                <!-- ========= Groups tab ========= -->
+                <VerticalStackLayout Spacing="6" IsVisible="False">
+                    <VerticalStackLayout.Triggers>
+                        <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsGroupsTabOpen}" Value="True">
+                            <Setter Property="IsVisible" Value="True" />
+                        </DataTrigger>
+                    </VerticalStackLayout.Triggers>
+
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Label Text="Grp" Style="{StaticResource CellHeading}"
+                               WidthRequest="{StaticResource GroupWidthNumber}" />
+                        <Label Grid.Column="1" Text="Channels" Style="{StaticResource CellHeading}" />
+                    </Grid>
+
+                    <VerticalStackLayout Spacing="6"
+                                         BindableLayout.ItemsSource="{Binding GroupRows}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AleGroupListRow">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                    <Label Text="{Binding NumberText}" Style="{StaticResource CellValue}"
+                                           WidthRequest="{StaticResource GroupWidthNumber}"
+                                           SemanticProperties.Description="Channel group number" />
+                                    <Label Grid.Column="1" Text="{Binding ChannelsText}" Style="{StaticResource CellValue}"
+                                           LineBreakMode="WordWrap"
+                                           SemanticProperties.Description="Stored channels, or the group's unqueried or empty state" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+
+                <Label Style="{StaticResource ErrorCaption}" Text="{Binding InputError}"
+                       IsVisible="{Binding HasInputError}" />
+                <!-- ErrorCaption, deliberately: EMPTY on Accepted, so the only
+                     things it ever renders are Refused / Unverified / Failed. -->
+                <Label Style="{StaticResource ErrorCaption}" Text="{Binding OperationStatus}"
+                       IsVisible="{Binding HasOperationStatus}" />
+                <Label Style="{StaticResource Caption}" Text="{Binding WriteDisabledReason}"
+                       IsVisible="{Binding HasWriteDisabledReason}" />
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

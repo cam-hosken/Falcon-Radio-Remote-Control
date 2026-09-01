@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- MAUI-free app layer: radio session (connect/disconnect lifecycle,
+         auto-reconnect poller, TransportError-fatal handling), the Q9
+         per-domain surfaces, and all ViewModels. Extracted as a class
+         library (the Stage 0 option noted in Falcon.App.Tests.csproj) so
+         the net10.0 test host can reference the exact assembly the app
+         ships — no source-linking, no platform-gated shims. Same TFM pair
+         as Falcon.Core so the Android head links the same code. -->
+    <TargetFrameworks>net10.0;net10.0-android</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Falcon.App.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- MVVM source generators: [ObservableProperty], [RelayCommand], ObservableObject -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Falcon.Core\Falcon.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    HOP pane (plan §4.3; restructured per plan-ui-tweaks-round3.md §R,
+    reflowed per plan-ui-tweaks-round4.md §AB, REFLOWED AGAIN per
+    plan-ui-tweaks-round11.md §7: Current net → Status → Select net).
+    The round-11 order puts the radio's OWN state first (what net it is on,
+    then how that net is doing) and the operator's ACTION last, with the
+    PICKED net's read-back sitting inside the action frame, where the choice
+    is actually made.
+    BindingContext is inherited from the page (OperateViewModel).
+    Visibility keys off the CONFIRMED mode (Mode.IsHopActive) on the root
+    ScrollView.
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             x:Class="Falcon.App.Views.OperateParts.HopPaneView"
+             x:DataType="vm:OperateViewModel">
+
+    <!-- SELECT-ONLY: net editing is out of v1 on THIS pane (owner,
+         2026-08-02; the round-3 editor lives on the HOP settings pane).
+         Net values come from the DIS-fed mirror; the selected marker
+         and every displayed value follow only the radio's reports.
+         Coupler tune outcome during net selection shows on the
+         spine's TUNE chip above (TUNE FAULT is a routine outcome on
+         this radio's flaky coupler). -->
+    <ScrollView IsVisible="{Binding Mode.IsHopActive}">
+        <VerticalStackLayout Spacing="{OnIdiom Default=10, Phone=8}">
+
+            <!-- ==== Current net (§R1; round-4 AB4 headed columns) ====
+                 FIRST frame since round-11 §7.
+                 ONE ROW for the net the RADIO says it is on: number, NETID,
+                 hop type, frequencies — a small HEADING over each
+                 larger value (the K1 CellHeading/CellValue styles), so the
+                 row reads as a labelled table instead of four bare strings.
+                 Rendered from CONFIRMED state only — the picker below cannot
+                 move any of it — and every cell is a FIXED width (rule K,
+                 the K1 CellWidth* keys) reading "—" until the radio has
+                 reported it this session. Row total 56+100+52+150 + 3x8 =
+                 382 dp, so it fits the bench phone without overflowing.
+                 Hopnum and sync are deliberately NOT here: they are
+                 radio-global reports and live in Status. -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Current net" Style="{StaticResource CardHeading}" />
+                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="8"
+                          RowDefinitions="Auto,Auto" RowSpacing="2">
+                        <Label Text="Net" Style="{StaticResource CellHeading}" />
+                        <Label Grid.Column="1" Text="ID" Style="{StaticResource CellHeading}" />
+                        <Label Grid.Column="2" Text="Type" Style="{StaticResource CellHeading}" />
+                        <!-- Round 7 (DD): this header follows the current
+                             net's confirmed type — Center (MHz) / Band (MHz)
+                             / Hoplist — generic until one is reported. -->
+                        <Label Grid.Column="3" Text="{Binding Hop.ValueColumnHeading}" Style="{StaticResource CellHeading}" />
+
+                        <Label Grid.Row="1" Text="{Binding Hop.ActiveNetText}"
+                               Style="{StaticResource CellValue}"
+                               WidthRequest="{StaticResource CellWidthNet}"
+                               SemanticProperties.Description="Radio's current net number" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding Hop.ActiveNetIdText}"
+                               Style="{StaticResource CellValue}"
+                               WidthRequest="{StaticResource CellWidthId}"
+                               SemanticProperties.Description="Current net's net ID" />
+                        <Label Grid.Row="1" Grid.Column="2" Text="{Binding Hop.ActiveTypeText}"
+                               Style="{StaticResource CellValue}"
+                               WidthRequest="{StaticResource CellWidthType}"
+                               SemanticProperties.Description="Current net's hop type" />
+                        <Label Grid.Row="1" Grid.Column="3" Text="{Binding Hop.ActiveHopsetText}"
+                               Style="{StaticResource CellValue}"
+                               WidthRequest="{StaticResource CellWidthValue}"
+                               SemanticProperties.Description="Current net's frequencies in MHz" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== Status (§R2) — Hopnum, generation, sync, Send Sync ==== -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Status" Style="{StaticResource CardHeading}" />
+                    <HorizontalStackLayout Spacing="12">
+                        <!-- Round 10 (§3): Hopnum is a headed-table VALUE cell —
+                             the inline 18/Bold/Consolas copy of CellValue is
+                             deleted in favour of the style itself. -->
+                        <Label Text="{Binding Hop.HopnumText}" Style="{StaticResource CellValue}"
+                               VerticalOptions="Center" />
+                        <HorizontalStackLayout Spacing="6" IsVisible="{Binding Hop.IsGenerating}">
+                            <ActivityIndicator IsRunning="{Binding Hop.IsGenerating}"
+                                               WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                            <Label Text="Generating Hopset…" Style="{StaticResource StatusText}"
+                                   TextColor="{AppThemeBinding Light={StaticResource WarnTextLight}, Dark={StaticResource WarnTextDark}}"
+                                   VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </HorizontalStackLayout>
+
+                    <!-- ROUND 11 §7: the generation-attempt refusal. The state
+                         machine lives in HopSurface — its triggers span BOTH
+                         HOP view models (net select here, every hopset-family
+                         write on the settings pane) and they share one surface
+                         — so this pane only RENDERS the sentence, from
+                         Hop.StatusText. Warn-colored like the generating line
+                         beside it: the STATE drives the colour, so the colour
+                         stays at the use site (§3). -->
+                    <Label Text="{Binding Hop.StatusText}" Style="{StaticResource StatusText}"
+                           TextColor="{AppThemeBinding Light={StaticResource WarnTextLight}, Dark={StaticResource WarnTextDark}}"
+                           IsVisible="{Binding Hop.HasStatusText}"
+                           SemanticProperties.Description="Why the last generation attempt produced nothing" />
+
+                    <!-- ROUND 13 §4 A2 (item 10, owner 2026-08-19): the row was
+                         a HorizontalStackLayout, so Send Sync slid left and
+                         right as the sync wording changed length. It is a GRID
+                         now — chip col 0, the residual star col 1, Send Sync
+                         col 2 — and the chip takes a fixed SyncChipWidth, so
+                         neither control moves on a state change (rule K). -->
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                        <!-- 7-state sync chip: "—" until the radio reports
+                             a sync state (never a default). The width is HERE,
+                             at the use site — never on the shared Chip style,
+                             which also dresses the spine TUNE and ALE chips. -->
+                        <Border Style="{StaticResource Chip}"
+                                WidthRequest="{StaticResource SyncChipWidth}"
+                                SemanticProperties.Description="Hop sync status">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding Hop.IsInSync}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource ChipOkColor}" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Border" Binding="{Binding Hop.IsSyncFailed}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource ChipErrColor}" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <!-- The `SYNC: ` prefix is GONE (round 13 item 10):
+                                 the messages are human-readable sentences now
+                                 and say what they are, so the label is a plain
+                                 binding. -->
+                            <Label Text="{Binding Hop.SyncChipText}"
+                                   Style="{StaticResource StatusText}" VerticalOptions="Center">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding Hop.IsInSync}" Value="True">
+                                        <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Label" Binding="{Binding Hop.IsSyncFailed}" Value="True">
+                                        <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+                        </Border>
+                        <!-- §R2: Send Sync moves in beside the chip it acts on.
+                             Command and gating unchanged (Hopnum > 0 confirmed,
+                             no generation / select in flight).
+                             ACTION-class, NOT segment-class (§N mechanism note:
+                             a text too long for the shared SegmentWidth argues
+                             the button is not segment-class) — this pane's
+                             Send Sync and Select Net size naturally; do not
+                             pin them to SegmentWidth (72 dp). -->
+                        <Button Grid.Column="2" Text="Send Sync" Style="{StaticResource Segment}"
+                                HorizontalOptions="End"
+                                Command="{Binding Hop.SendSyncCommand}"
+                                SemanticProperties.Description="Send a sync request (transmits)" />
+                    </Grid>
+
+                    <!-- The MODEM ROW IS BACK (clone-field round 2 F10, owner
+                         ruling R-C 2026-08-21; plan/plan-clone-field-round2.md
+                         §2 F10, decision A-8) — the round-8 markup restored
+                         verbatim in its original position.
+
+                         WHY IT WENT (round 14 A3, 2026-08-20): the round-13 T1
+                         probe read `INVALID MODEM PRESET` from every targeted
+                         read and every select at a `HOP>` prompt, and
+                         `NO PRESETS ENABLED` from the bulk form, and concluded
+                         hop refused modem presets WHOLESALE. A control that can
+                         only ever draw an error does not ship.
+
+                         WHY IT IS BACK: that probe only ever asked for presets
+                         0-6, and those are the half `HOP>` does not have.
+                         Probes P5-P5d2 (2026-08-21; transcripts
+                         bench/transcripts/p5-hop-modem-presets-20260821-180547.jsonl
+                         and p5d2-hop-modem-select-enabled-20260821-183248.jsonl)
+                         asked for 7-9: `MODEM PRE 7` answers a stored preset,
+                         `MODEM 9` answers `MODEM 9 DAT9`, a disabled one answers
+                         `PRESET DISABLED`, and the bulk listing names the
+                         enabled 7-9. So the row works at this prompt — over the
+                         presets this prompt owns.
+
+                         SAME markup, SAME one cross-mode ModemViewModel; what
+                         changed is behind it: the wheel is MODE-SCOPED now
+                         (OFF + 7-9 here, OFF + 0-6 on the SSB and ALE panes)
+                         and the presence store it skips disabled presets by is
+                         keyed to the prompt its listing was read at. -->
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Modem" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                            <Button Text="◀" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding Modem.ModemDownCommand}"
+                                    SemanticProperties.Description="Previous modem preset" />
+                            <!-- Round 10 (§3): the named width key replaces the
+                                 literal 96. -->
+                            <Border Style="{StaticResource ValueDisplay}" WidthRequest="{StaticResource ValueWidthWide}"
+                                    SemanticProperties.Description="Active modem preset">
+                                <Label Style="{StaticResource ValueDisplayText}"
+                                       Text="{Binding Modem.ModemDisplayText}" />
+                            </Border>
+                            <Button Text="▶" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding Modem.ModemUpCommand}"
+                                    SemanticProperties.Description="Next modem preset" />
+                        </HorizontalStackLayout>
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== Select net (§R3; LAST frame since round-11 §7) ====
+                 The net number, in the SSB frequency-digit idiom: ▲ (44)
+                 above a large Consolas digit, ▼ (44) below, wrapping 0-9. The
+                 digit is APP-SIDE VIEW state (which net the operator is
+                 LOOKING at), not radio state — hence a plain label, not an
+                 Option-B confirmed-value display. Spinning sends the cheap
+                 read-only `DIS n` once per net per session (§V5) and NEVER
+                 `NET n` (§M4): selecting a net regenerates the hopset and
+                 tunes the coupler (transmits). Only "Select Net" does that —
+                 IMMEDIATELY since round 6 (CD, owner ruling): no warning.
+                 AB2: the green "Selected" chip is DELETED — Select Net greys
+                 (with its reason) on the net the radio is already on, and the
+                 Current net frame above names that net; the chip was a third
+                 copy of the same confirmed fact. -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Select net" Style="{StaticResource CardHeading}" />
+
+                    <!-- Digit picker (left) + the §7 NET INFO VIEW and the
+                         Select action in the residual star column. -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <VerticalStackLayout Spacing="0" HorizontalOptions="Start">
+                            <Button Text="▲" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding Hop.NetUpCommand}"
+                                    SemanticProperties.Description="Show the next hopping net (view only — sends no net change)" />
+                            <!-- Round 10 (§3): SpinnerDigit. The 44-dp WIDTH
+                                 stays at the use site — the style is the font
+                                 role, the strip sizes its own column. -->
+                            <Label Text="{Binding Hop.PickedNetText}" Style="{StaticResource SpinnerDigit}"
+                                   WidthRequest="44" />
+                            <Button Text="▼" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding Hop.NetDownCommand}"
+                                    SemanticProperties.Description="Show the previous hopping net (view only — sends no net change)" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                            <!-- ROUND 11 §7 — the NET INFO VIEW: a TWO-LINE
+                                 read-back stack for the PICKED net (a
+                                 CellHeading caption over a CellValue value per
+                                 line), centered in the residual column beside
+                                 the picker. It answers "what am I about to
+                                 select?" without a second read: the data is the
+                                 SAME mirror projection the settings net-list
+                                 rows render, and the only read behind it is the
+                                 per-pick `DIS n` this pane already sends.
+                                 Line 1 renders the mirror's THIRD state for the
+                                 ID (the radio's own XXXXXXXX vs an unreported
+                                 "—"); line 2's HEADER follows the confirmed
+                                 type, so the value is never mislabelled.
+                                 BUDGET (LAYOUT-PROVISIONAL, invariant 7; the
+                                 §14 phone eyeball settles it): the star
+                                 residual on the 336-dp phone card is
+                                 336 − 44 − 8 = 284 dp, and the widest line 1 is
+                                 twenty Consolas-18 glyphs ("03 · XXXXXXXX ·
+                                 LIST") ≈ 200 dp ≤ 284 ✓. Putting Select Net
+                                 BELOW the stack rather than in a third column
+                                 is what buys that headroom; the picker strip is
+                                 132 dp tall, so the stack + button (≈106 dp)
+                                 add no height to the row. -->
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="{x:Static vm:HopViewModel.NetInfoHeading}"
+                                       Style="{StaticResource CellHeading}"
+                                       HorizontalOptions="Center" />
+                                <Label Text="{Binding Hop.PickedNetInfoText}"
+                                       Style="{StaticResource CellValue}"
+                                       HorizontalOptions="Center"
+                                       SemanticProperties.Description="Picked net's number, net ID and hop type" />
+                                <Label Text="{Binding Hop.PickedNetValueHeading}"
+                                       Style="{StaticResource CellHeading}"
+                                       HorizontalOptions="Center" />
+                                <Label Text="{Binding Hop.PickedNetValueText}"
+                                       Style="{StaticResource CellValue}"
+                                       HorizontalOptions="Center"
+                                       SemanticProperties.Description="Picked net's programmed frequencies" />
+                            </VerticalStackLayout>
+
+                            <Button Text="Select Net" Style="{StaticResource Segment}"
+                                    HorizontalOptions="End"
+                                    Command="{Binding Hop.SelectPickedNetCommand}"
+                                    IsEnabled="{Binding Hop.CanSelectPickedNet}"
+                                    SemanticProperties.Description="Make the picked net the radio's current net (regenerates the hopset and tunes the coupler — transmits)" />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <!-- List_Invalid badge (plan §4.3) — the radio refuses to
+                         sync on this net; only ever the current one, so it
+                         shows when the picker is parked on it.
+                         ROUND 13 §4 A2: the badge reads "Net list invalid",
+                         not the raw wire token (constitution §3.2 — prose on
+                         the chip, the raw `List_Invalid` line still visible in
+                         the Console feed). Text only: the owner scoped no
+                         width work here, so this chip still sizes itself. -->
+                    <Border Style="{StaticResource Chip}"
+                            BackgroundColor="{StaticResource ChipErrColor}"
+                            HorizontalOptions="Start"
+                            IsVisible="{Binding Hop.IsPickedNetListInvalid}"
+                            SemanticProperties.Description="Hoplist invalid">
+                        <!-- Round 10 (§3): the STATUS tier — Bold at the
+                             DEFAULT size, so the inline FontSize goes with the
+                             adoption (an inline size would keep this the one
+                             status line rendered smaller than the rest). The
+                             on-chip COLOR stays inline. -->
+                        <Label Text="Net list invalid" TextColor="{StaticResource OnAccentColor}"
+                               Style="{StaticResource StatusText}" VerticalOptions="Center" />
+                    </Border>
+
+                    <!-- Round 6 (CD): the once-per-session net-change warning
+                         is GONE by owner ruling — Select Net sends NET n on
+                         the press; the select gate (Ready + programmed +
+                         not-current) is the remaining friction. -->
+
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== Time ====
+                 GONE from this pane (round-4 AB3): the clock frame moved to
+                 Mode settings → HOP, where DeviceSettingsViewModel is the one
+                 clock state source. The pane no longer sends TI on landing. -->
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentView>

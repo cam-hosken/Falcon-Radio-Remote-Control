@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Connection settings page (GUI rejigger G1–G4): port picker, baud
+    (2400/4800/9600/19200, default 9600), and the app-side BITS / PARITY / STOP
+    pickers (G2). Every picker binds two-way to APP-side session settings —
+    legal; the §2.4 two-way ban is on radio state.
+
+    G1: no auto-reconnect toggle (auto-reconnect is OFF — owner ruling). The
+    Connect/Disconnect toggle was the SHELL's (N2) until clone round 12 §6 F2
+    brought it back here, full width under the last card — see that block.
+    G3: the radio-port PORT_R dump and the "Change radio baud…" wizard UI
+    are REMOVED (backend kept: BaudChangeFlow / RadioPortViewModel and
+    their tests stay).
+    G4: the page is LOCKED OUT while connected — every input's IsEnabled
+    binds IsEditable (true only in Disconnected/Failed).
+
+    UI tweaks round 11 (§9): the page's MaximumWidthRequest="560" is DELETED.
+    The Windows window is FIXED at WindowFixedWidth (App.xaml.cs), which leaves
+    about 492 dp of content — the cap could never bind, and a cap that can
+    never bind is a number a later reader has to re-derive to discover is
+    inert. The owner's "the connection settings don't resize" observation
+    closes BY CONSTRUCTION with the fixed window, not with this cap.
+
+    2026-08-23 (owner ask): the root stack FILLS on every idiom — the old
+    Default=Start branch shrank the cards and the Connect button to content
+    width on desktop. Start predated the fixed window; with the width bounded
+    by WindowFixedWidth there is no stretch case left for it to guard.
+
+    UI tweaks round 3 (W1/T1): the page finally gets the card treatment the
+    rest of the app has — TWO cards, "Port" (the port picker + its Refresh +
+    the baud rate) and "Line format" (data bits / parity / stop bits) — with
+    the phase status line below them. The in-page "Connection" Bold-18
+    heading is REMOVED: the page title already says it. (The framelessness
+    here was an accident of age, not the T3 strip rule.)
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             x:Class="Falcon.App.Views.SettingsPage"
+             x:DataType="vm:ConnectionSettingsViewModel"
+             Title="Connection settings">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="{OnIdiom Default=16, Phone=12}" Spacing="12"
+                             HorizontalOptions="Fill">
+
+            <!-- ==== Port ==== -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Port" Style="{StaticResource CardHeading}" />
+
+                    <!-- Y2: the port Refresh sits right of the picker (already
+                         right-aligned by the grid — no new Refresh added). -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <!-- CLONE ROUND 12 §6 F4: named so the code-behind can
+                             wire the three interaction events the poll needs —
+                             focus/unfocus (defer scan updates while the
+                             dropdown is open) and selection (the OPERATOR's
+                             own pick, which is the only thing that sets a
+                             preferred port). -->
+                        <Picker x:Name="PortPicker"
+                                Title="Serial port"
+                                ItemsSource="{Binding AvailablePorts}"
+                                SelectedItem="{Binding SelectedPort}"
+                                IsEnabled="{Binding IsEditable}"
+                                MinimumHeightRequest="44"
+                                SemanticProperties.Description="Serial port" />
+                        <!-- Round 10 §6: the style-less button joins the ACTION
+                             class — Segment style, NATURAL width, still
+                             row-scoped beside the picker it refreshes. -->
+                        <Button Grid.Column="1" Text="Refresh" Style="{StaticResource Segment}"
+                                Command="{Binding RefreshPortsCommand}"
+                                IsEnabled="{Binding IsEditable}"
+                                MinimumHeightRequest="44"
+                                SemanticProperties.Description="Refresh the list of serial ports" />
+                    </Grid>
+
+                    <Picker Title="Baud rate"
+                            ItemsSource="{Binding BaudRates}"
+                            SelectedItem="{Binding SelectedBaud}"
+                            IsEnabled="{Binding IsEditable}"
+                            MinimumHeightRequest="44"
+                            SemanticProperties.Description="Baud rate" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== Line format ==== -->
+            <!-- G2: app-side line-format pickers (PortSettings carries them). -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Line format" Style="{StaticResource CardHeading}" />
+
+                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                        <Picker Title="Data bits"
+                                ItemsSource="{Binding DataBitsOptions}"
+                                SelectedItem="{Binding SelectedDataBits}"
+                                IsEnabled="{Binding IsEditable}"
+                                MinimumHeightRequest="44"
+                                SemanticProperties.Description="Data bits" />
+                        <Picker Grid.Column="1" Title="Parity"
+                                ItemsSource="{Binding ParityOptions}"
+                                SelectedItem="{Binding SelectedParity}"
+                                IsEnabled="{Binding IsEditable}"
+                                MinimumHeightRequest="44"
+                                SemanticProperties.Description="Parity" />
+                        <Picker Grid.Column="2" Title="Stop bits"
+                                ItemsSource="{Binding StopBitsOptions}"
+                                SelectedItem="{Binding SelectedStopBits}"
+                                IsEnabled="{Binding IsEditable}"
+                                MinimumHeightRequest="44"
+                                SemanticProperties.Description="Stop bits" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== Connect ⇄ Disconnect ==== -->
+            <!-- CLONE ROUND 12 §6 F2: the toggle LEAVES Shell.TitleView and
+                 lands here, beneath the last card and above the status line —
+                 full width (HorizontalOptions=Fill, no WidthRequest: it stays
+                 ACTION class and sizes itself). The app opens on this page,
+                 so connecting is now one screen with one obvious control.
+                 ConnectToggleViewModel is unchanged; the code-behind DI wiring
+                 moved with the button. -->
+            <Button x:Name="ConnectToggleButton"
+                    x:DataType="vm:ConnectToggleViewModel"
+                    Text="{Binding Label}"
+                    Command="{Binding ToggleCommand}"
+                    Style="{StaticResource Segment}"
+                    HorizontalOptions="Fill"
+                    MinimumHeightRequest="44"
+                    SemanticProperties.Description="Connect or disconnect the radio session" />
+
+            <!-- The phase status line stays BELOW the cards. -->
+            <Label Text="{Binding StatusText}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,674 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    HOP settings pane (Mode settings page) — the NET PROGRAMMING card.
+
+    Round 4 (§AJ) gave the card TWO full-width SUB-TABS. Round 5 (§BE/§BG)
+    rebuilds what is inside the programming tab:
+
+      "Net programming"  LEFT, DEFAULT — the net picker, then EVERY FIELD ON
+                         ITS OWN ROW (BE1): net ID, hop type, the TYPE-SWITCHED
+                         value controls, and the actions. No Store, no blue
+                         "Radio:" strip.
+      "Net list"         RIGHT — ten READ-ONLY rows, nets 0-9, in the headed
+                         cell style (CellHeading/CellValue + the CellWidth*
+                         keys defined in App.xaml, round 4 K1).
+
+    Round-5 constitution notes:
+    - PER-FIELD WRITES (BG1). Each row commits its OWN radio command and then
+      re-reads with `DIS n`. Entry rows commit on Return (ReturnCommand) or via
+      their Set button — the same command either way.
+    - TYPE-SWITCHED VALUES (BG2). The value section follows the net's CONFIRMED
+      type: NB shows Center, WB shows Low/High, LIST shows the list UI, and an
+      unreported type shows NO value controls. That is what enforces the wire's
+      "HOPTYPE before HOPSET" ordering — there is no way to reach a value
+      control except through a type the radio has already confirmed.
+    - READ DISPLAYS (round-8 EA, superseding round-7 DB's value-backed
+      placeholders): each field's REPORTED value renders in a blue inert
+      ValueDisplay beside its entry (the RF-gain idiom, "—" until reported);
+      the placeholders are plain format hints. The Text buffer is still
+      always the operator's — typing starts clean, a report can never
+      clobber typing, and an EMPTY field at commit still falls back to the
+      reported value backing its display. The type segments still show the
+      CONFIRMED type. A picker spin clears the entry text.
+    - MHz (K6/BD2). Every frequency shown or typed here is MHz; the heading
+      carries the unit and the cells and entries are bare numbers.
+    - CLEAR NET (BG4) opens a warning on EVERY press and sends nothing until
+      Proceed — HOPSET n DEL wipes the whole net record.
+    - READ PATH (round 9, the unified two-tier doctrine): the EDITOR reads
+      fresh per landing — a picker spin, a programming-tab landing, and the
+      surface first becoming readable this session (initial sight, and the
+      reconnect after a drop) each send `DIS n` for the PICKED net, plus
+      `HOPLIST n` when it is confirmed LIST (BC4). The NET LIST tab is the
+      lazy tier: its FIRST landing this session sends the whole-table `DIS`
+      and re-arms the hoplist once-set; nothing else sends a `DIS`-all.
+      The pane's Refresh button is DELETED — every landing re-reads.
+
+    ROUND 11 (§7, owner ruling R11 / scope amendment X9) adds a SECOND CARD
+    below the net-programming one: "Exclusion bands", the WB exclusion table in
+    the LIST-editor idiom. It is its own card because the wire's `EXC` names no
+    net — the table is global, not a property of the picked net — and it rides
+    the same editors-read-fresh tier the net editor uses. §7 also closes the
+    LIST add box's delimiter to SPACE and re-words the Clear-net popup (the
+    wipe resets the type to WB).
+
+    ROUND 14 B (owner ruling R2) adds a THIRD CARD: the ANTENNA COUPLER row,
+    copied from the SSB settings pane and reading the same mirror.
+    ROUND 15 H-1 (owner) puts it FIRST and deletes its advisory caption, so the
+    pane reads: ANTENNA COUPLER - Net programming - Exclusion bands - (outside
+    the gate) the radio clock. It leads because it is the setting to check
+    BEFORE programming a net, not a footnote below the editor that depends on
+    it.
+
+    Binding: the ContentView root inherits the hosting page's ModeViewModel so
+    ModeSettingsPage's IsVisible="{Binding IsHopActive}" keeps resolving; only
+    the inner Body rebinds to HopSettingsViewModel (the AleSettingsPaneView
+    pattern).
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             xmlns:parts="clr-namespace:Falcon.App.Views.SettingsParts"
+             xmlns:behaviors="clr-namespace:Falcon.App.Behaviors"
+             x:Class="Falcon.App.Views.SettingsParts.HopSettingsPaneView">
+
+    <ContentView.Resources>
+        <!-- F4 (plan-clone-field-round2.md, decision A-2) — THE CRASH FIX.
+             The coupler row copied in round 14 B (3d430d0) came with a
+             `{StaticResource ChoiceButton}` binding, but the template it names
+             lives only in SsbSettingsPaneView's OWN resources. A ContentView
+             resolves a StaticResource at InitializeComponent time against its
+             own dictionary and the application's — never a SIBLING view's — so
+             ModeSettingsPage, which constructs all three panes eagerly, died
+             with `XamlParseException: Position 477:52. StaticResource not found
+             for key ChoiceButton` on every entry, in all three modes (crash
+             buffer, adb logcat -b crash, 2026-08-21; three identical frames).
+
+             The fix is the r14-b idiom, not a shared dictionary: this pane owns
+             its own copy under its own key. The key is DELIBERATELY DISTINCT
+             (`HopChoiceButton`) so that a future copy-paste of a row out of
+             this file carries a name that says where it came from, and so the
+             structural guard (XamlResourceGuardTests) has a named target to
+             pin rather than a name that happens to exist in three files.
+
+             VERBATIM copy of SsbSettingsPaneView.xaml's `ChoiceButton`. If that
+             one changes, this one is a separate decision — which is exactly
+             what A-2 chose over a shared dictionary. -->
+        <DataTemplate x:Key="HopChoiceButton" x:DataType="vm:ChoiceItem">
+            <Button Text="{Binding Value}" Style="{StaticResource Segment}"
+                    WidthRequest="{StaticResource SegmentWidth}"
+                    Command="{Binding SelectCommand}"
+                    SemanticProperties.Description="{Binding Value}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsActive}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                        <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+        </DataTemplate>
+    </ContentView.Resources>
+
+    <ScrollView x:Name="Body" x:DataType="vm:HopSettingsViewModel">
+        <VerticalStackLayout Spacing="{OnIdiom Default=12, Phone=8}">
+
+            <!-- ============ Antenna coupler (round 14 B, R2) =================
+                 The owner's ask, verbatim: "copy the SSB settings screen's
+                 control buttons". This IS that row — SsbSettingsPaneView.xaml's
+                 "Internal coupler" grid, cell for cell — reading and writing
+                 the SAME Core mirror. Two placements of one confirmed value:
+                 press Bypass here and the SSB pane's row lights Bypass too,
+                 with no synchronisation code anywhere, because there is only
+                 ever one state.
+
+                 WHY IT IS HERE. Wide-band and list nets do not generate
+                 while the internal coupler is enabled — manual Table 1-5, and
+                 BENCH-PROVEN by P-1 run B (the same WB tuple answered
+                 `WB_Invalid` with the coupler enabled and generated
+                 `Hopnum 0101` with it bypassed). ROUND 15 H-1 (owner) moves it
+                 to the TOP of the pane: it is the setting to check before
+                 programming a net, not a footnote below the editor that
+                 depends on it. Round 14 B had it between the net editor and
+                 the exclusion table.
+
+                 ITS ADVISORY CAPTION IS DELETED (H-1). The restriction is
+                 documented in docs/ui.md; a standing paragraph on a one-row
+                 card was furniture, and the card now leads the pane, where a
+                 heading and a row read faster than a heading, a row and a
+                 warning.
+
+                 ITS OWN CARD, like the exclusion table beside it, for the same
+                 reason: the coupler is RADIO state, not a property of the
+                 picked net, so it does not belong inside the per-net editor.
+
+                 The buttons ALWAYS SEND — no re-click guard — and only the
+                 radio's echo (`INTCoupler Bypassed` / `INTCoupler Enabled`,
+                 P-1 captured) lights one. That is the provisional-trio contract
+                 inherited whole from the copied row (docs/ui.md). -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Antenna coupler" Style="{StaticResource CardHeading}" />
+
+                    <VerticalStackLayout Spacing="10" IsEnabled="{Binding AreControlsEnabled}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <Label Text="Internal coupler" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                            <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                                   BindableLayout.ItemsSource="{Binding InternalCouplerChoices}"
+                                                   BindableLayout.ItemTemplate="{StaticResource HopChoiceButton}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+
+                    <Label Text="Net programming" Style="{StaticResource CardHeading}" />
+
+                    <Label Style="{StaticResource Caption}" Text="{Binding DisabledReason}"
+                           IsVisible="{Binding HasDisabledReason}" />
+
+                    <!-- Sub-tab strip — CARD-level, so INSIDE the card (T3),
+                         full width, under the heading. Pure view state:
+                         switching sends nothing. Programming is the DEFAULT
+                         (IsListTabOpen starts false) and sits LEFT. The strip
+                         stays usable outside the gate — it switches a view, it
+                         does not touch the radio. -->
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                        <Button Text="Net programming" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                                Command="{Binding OpenProgrammingTabCommand}"
+                                SemanticProperties.Description="Net programming tab (picker and per-field editors)">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsListTabOpen}" Value="False">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Grid.Column="1" Text="Net list" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                                Command="{Binding OpenListTabCommand}"
+                                SemanticProperties.Description="Net list tab (all ten nets, read-only)">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsListTabOpen}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </Grid>
+
+                    <!-- Everything the gate greys: both tab bodies. Outside
+                         Ready + confirmed HOP the card is silently inert. -->
+                    <VerticalStackLayout Spacing="10" IsEnabled="{Binding AreControlsEnabled}">
+
+                        <!-- ========= Net programming tab (BE1: one row each) ========= -->
+                        <VerticalStackLayout Spacing="10" IsVisible="True">
+                            <VerticalStackLayout.Triggers>
+                                <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsListTabOpen}" Value="True">
+                                    <Setter Property="IsVisible" Value="False" />
+                                </DataTrigger>
+                            </VerticalStackLayout.Triggers>
+
+                            <!-- ROW 1 — the net picker. APP-SIDE view state
+                                 (which net every row below addresses). ROUND 9:
+                                 a spin is an EDITOR LANDING and READS the net
+                                 it lands on (DIS n, plus HOPLIST n for a
+                                 confirmed LIST net) — the round-5 "the picker
+                                 sends nothing" ruling is reversed here. It is
+                                 also a populate gesture, so the entries CLEAR
+                                 and the read displays show the landed net's
+                                 reported values (round-7 DB / round-8 EA).
+                                 Round 6 (CC): the explanatory caption beside
+                                 the picker is GONE (owner) — the picker stands
+                                 alone. -->
+                            <VerticalStackLayout Spacing="0" HorizontalOptions="Start">
+                                <Button Text="▲" FontSize="10" Padding="0"
+                                        WidthRequest="44" HeightRequest="44"
+                                        Command="{Binding NetUpCommand}"
+                                        SemanticProperties.Description="Show the next net — re-reads it from the radio (DIS n)" />
+                                <!-- Round 10 §3: the spinner digit is a NAMED
+                                     style now (SpinnerDigit) — the width stays
+                                     at the use site, as the key's note says. -->
+                                <Label Text="{Binding PickedNetText}"
+                                       Style="{StaticResource SpinnerDigit}"
+                                       WidthRequest="44" />
+                                <Button Text="▼" FontSize="10" Padding="0"
+                                        WidthRequest="44" HeightRequest="44"
+                                        Command="{Binding NetDownCommand}"
+                                        SemanticProperties.Description="Show the previous net — re-reads it from the radio (DIS n)" />
+                            </VerticalStackLayout>
+
+                            <!-- ROW 2 — net ID (NETID n, then DIS n). Round 8
+                                 (EA, owner): the blue ValueDisplay left of the
+                                 entry is the RF-gain idiom — the CONFIRMED
+                                 reported value, "—" until reported, K-fixed
+                                 width (8 digits / the X-form). The placeholder
+                                 is a plain hint again. -->
+                            <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
+                                <Label VerticalOptions="Center" Style="{StaticResource Caption}"
+                                       Text="Net ID" WidthRequest="86" />
+                                <Border Grid.Column="1" Style="{StaticResource ValueDisplay}"
+                                        WidthRequest="{StaticResource ValueWidthXWide}"
+                                        SemanticProperties.Description="Net ID reported value">
+                                    <Label Style="{StaticResource ValueDisplayText}"
+                                           Text="{Binding NetIdDisplayText}" />
+                                </Border>
+                                <Entry Grid.Column="2" Keyboard="Numeric" MaxLength="8"
+                                       Placeholder="8 digits"
+                                       Text="{Binding NetIdInput, Mode=TwoWay}"
+                                       ReturnCommand="{Binding CommitNetIdCommand}"
+                                       SemanticProperties.Description="Net ID entry — empty re-sends the reported ID" />
+                                <Button Grid.Column="3" Text="Set" Style="{StaticResource Segment}"
+                                        WidthRequest="{StaticResource SegmentWidth}"
+                                        Command="{Binding CommitNetIdCommand}"
+                                        SemanticProperties.Description="Write this net ID to the radio" />
+                            </Grid>
+
+                            <!-- ROW 3 — hop type (HOPTYPE n, then DIS n).
+                                 ROUND 13 (plan/plan-round13.md §4 A1):
+                                 item 9 (owner 2026-08-19) RIGHT-JUSTIFIES the
+                                 three segments — the residual star column is
+                                 col 1, ahead of them, and nothing sits in it;
+                                 item 14 (ruling 2026-08-20) moves the
+                                 highlight from the CONFIRMED type to the
+                                 REPORTED one, so a type press lights on the
+                                 radio's echo even before a net ID lands. The
+                                 gates did NOT move: the value sections below
+                                 stay bound to Is*Confirmed and the re-click
+                                 guard still reads the confirmed type, so a lit
+                                 segment on a reported-but-unconfirmed net
+                                 still sends (a harmless duplicate). -->
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="6">
+                                <Label VerticalOptions="Center" Style="{StaticResource Caption}"
+                                       Text="Type" WidthRequest="86" />
+                                <Button Grid.Column="2" Text="NB" Style="{StaticResource Segment}"
+                                        WidthRequest="{StaticResource SegmentWidth}"
+                                        Command="{Binding SetTypeCommand}" CommandParameter="NB"
+                                        SemanticProperties.Description="Set narrowband">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsNarrowbandReported}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Grid.Column="3" Text="WB" Style="{StaticResource Segment}"
+                                        WidthRequest="{StaticResource SegmentWidth}"
+                                        Command="{Binding SetTypeCommand}" CommandParameter="WB"
+                                        SemanticProperties.Description="Set wideband">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsWidebandReported}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Grid.Column="4" Text="LIST" Style="{StaticResource Segment}"
+                                        WidthRequest="{StaticResource SegmentWidth}"
+                                        Command="{Binding SetTypeCommand}" CommandParameter="LIST"
+                                        SemanticProperties.Description="Set hop list">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsListReported}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </Grid>
+
+                            <!-- ROW 4a is GONE (round 6, CC — owner ruling):
+                                 with no confirmed type the value controls are
+                                 simply ABSENT (BG2); no caption says so. -->
+
+
+                            <!-- ROW 4b — NB: one center (HOPSET n c, then DIS n).
+                                 EA: blue read display beside the entry; hint
+                                 placeholder. -->
+                            <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6"
+                                  IsVisible="{Binding IsNarrowbandConfirmed}">
+                                <Label VerticalOptions="Center" Style="{StaticResource Caption}"
+                                       Text="Center (MHz)" WidthRequest="86" />
+                                <Border Grid.Column="1" Style="{StaticResource ValueDisplay}"
+                                        WidthRequest="{StaticResource ValueWidthWide}"
+                                        SemanticProperties.Description="Center frequency reported value, MHz">
+                                    <Label Style="{StaticResource ValueDisplayText}"
+                                           Text="{Binding CenterDisplayText}" />
+                                </Border>
+                                <Entry Grid.Column="2" Keyboard="Numeric"
+                                       Placeholder="MHz, e.g. 11.565"
+                                       Text="{Binding CenterInput, Mode=TwoWay}"
+                                       ReturnCommand="{Binding CommitCenterCommand}"
+                                       SemanticProperties.Description="Narrowband center frequency in MHz — empty re-sends the reported center" />
+                                <Button Grid.Column="3" Text="Set" Style="{StaticResource Segment}"
+                                        WidthRequest="{StaticResource SegmentWidth}"
+                                        Command="{Binding CommitCenterCommand}"
+                                        SemanticProperties.Description="Write the center frequency to the radio" />
+                            </Grid>
+
+                            <!-- ROW 4c — WB: the two band edges. One command
+                                 carries both (HOPSET n low high), and since
+                                 round 6 (CB, owner) ONE Set below the pair
+                                 sends it — the per-row duplicates are gone.
+                                 Return on either entry still commits. -->
+                            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsWidebandConfirmed}">
+                                <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="6">
+                                    <Label VerticalOptions="Center" Style="{StaticResource Caption}"
+                                           Text="Low (MHz)" WidthRequest="86" />
+                                    <Border Grid.Column="1" Style="{StaticResource ValueDisplay}"
+                                            WidthRequest="{StaticResource ValueWidthWide}"
+                                            SemanticProperties.Description="Low edge reported value, MHz">
+                                        <Label Style="{StaticResource ValueDisplayText}"
+                                               Text="{Binding LowDisplayText}" />
+                                    </Border>
+                                    <Entry Grid.Column="2" Keyboard="Numeric"
+                                           Placeholder="MHz, e.g. 2.000"
+                                           Text="{Binding LowInput, Mode=TwoWay}"
+                                           ReturnCommand="{Binding CommitBandEdgesCommand}"
+                                           SemanticProperties.Description="Wideband low edge in MHz — empty sends the reported edge" />
+                                </Grid>
+                                <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="6">
+                                    <Label VerticalOptions="Center" Style="{StaticResource Caption}"
+                                           Text="High (MHz)" WidthRequest="86" />
+                                    <Border Grid.Column="1" Style="{StaticResource ValueDisplay}"
+                                            WidthRequest="{StaticResource ValueWidthWide}"
+                                            SemanticProperties.Description="High edge reported value, MHz">
+                                        <Label Style="{StaticResource ValueDisplayText}"
+                                               Text="{Binding HighDisplayText}" />
+                                    </Border>
+                                    <Entry Grid.Column="2" Keyboard="Numeric"
+                                           Placeholder="MHz, e.g. 8.000"
+                                           Text="{Binding HighInput, Mode=TwoWay}"
+                                           ReturnCommand="{Binding CommitBandEdgesCommand}"
+                                           SemanticProperties.Description="Wideband high edge in MHz — empty sends the reported edge" />
+                                </Grid>
+                                <Button Text="Set" Style="{StaticResource Segment}"
+                                        WidthRequest="{StaticResource SegmentWidth}"
+                                        HorizontalOptions="End"
+                                        Command="{Binding CommitBandEdgesCommand}"
+                                        SemanticProperties.Description="Write both band edges to the radio" />
+                            </VerticalStackLayout>
+
+                            <!-- ROW 4d — LIST: the stored frequencies as
+                                 removable rows (BG3), then one add box. The
+                                 rows come from the BC4 `HOPLIST n` read; ADD is
+                                 APPEND on the wire, which is fine now that
+                                 every entry is visible and removable. -->
+                            <VerticalStackLayout Spacing="10" IsVisible="{Binding IsListConfirmed}">
+                                <!-- Round 10 §3: this is a SECTION HEAD, not a
+                                     column heading — SubHeading. The table's
+                                     own header row is below it. -->
+                                <Label Text="Frequencies (MHz)" Style="{StaticResource SubHeading}" />
+
+                                <!-- Round 10 §3: the list editor is a TABLE, so
+                                     it gets a header row. The Remove column is
+                                     deliberately UNHEADED — a heading over a
+                                     column of buttons names nothing. -->
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                    <Label Text="Freq" Style="{StaticResource CellHeading}"
+                                           WidthRequest="{StaticResource CellWidthValue}" />
+                                </Grid>
+
+                                <VerticalStackLayout Spacing="6"
+                                                     BindableLayout.ItemsSource="{Binding ListRows}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:HopFrequencyRow">
+                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                                <Label Text="{Binding MhzText}" Style="{StaticResource CellValue}"
+                                                       WidthRequest="{StaticResource CellWidthValue}"
+                                                       SemanticProperties.Description="Stored hop frequency" />
+                                                <Button Grid.Column="2" Text="Remove" Style="{StaticResource Segment}"
+                                                        Command="{Binding Remove}"
+                                                        CommandParameter="{Binding FrequencyKHz}"
+                                                        SemanticProperties.Description="Remove this frequency from the net's hop list" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                                <Label Style="{StaticResource Caption}"
+                                       IsVisible="{Binding HasNoListFrequencies}"
+                                       Text="No frequencies reported for this net yet." />
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                                    <!-- The label text stays exactly "Add" — the
+                                         type-section guard LOCATES the LIST
+                                         section by it (invariant 6). -->
+                                    <Label VerticalOptions="Center" Style="{StaticResource Caption}"
+                                           Text="Add" WidthRequest="86" />
+                                    <!-- Round 7 (DC, owner): a HINT, not
+                                         something that reads like values. -->
+                                    <!-- ROUND 11 §7: the placeholder NAMES the
+                                         delimiter, because the delimiter is now
+                                         SPACE and nothing else — a comma is a
+                                         decimal comma to most of the world, and
+                                         splitting on it sent two frequencies
+                                         where the operator typed one. -->
+                                    <Entry Grid.Column="1"
+                                           Placeholder="{x:Static vm:HopSettingsViewModel.ListAddPlaceholder}"
+                                           Text="{Binding ListAddInput, Mode=TwoWay}"
+                                           ReturnCommand="{Binding AddListFrequenciesCommand}"
+                                           SemanticProperties.Description="One or more frequencies in MHz, space separated" >
+                                        <Entry.Behaviors>
+                                            <behaviors:SelectAllOnFocusBehavior />
+                                        </Entry.Behaviors>
+                                    </Entry>
+                                    <Button Grid.Column="2" Text="Add" Style="{StaticResource Segment}"
+                                            Command="{Binding AddListFrequenciesCommand}"
+                                            SemanticProperties.Description="Add these frequencies to the net's hop list" />
+                                </Grid>
+                            </VerticalStackLayout>
+
+                            <!-- ROW 5 — actions. Clear net is destructive, so it
+                                 asks on EVERY press. ROUND 10 §5: the inline
+                                 Proceed/Cancel strip and its warning box are
+                                 DELETED — the question is a two-button POPUP
+                                 (IConfirmationPrompt; the VM never touches MAUI
+                                 UI) that NAMES the net it captured at press, so
+                                 moving the picker while it is open cannot
+                                 redirect the wipe. The strip's markup pins moved
+                                 with it, into the VM's lifecycle tests. -->
+                            <Button Text="Clear net" Style="{StaticResource Segment}"
+                                    HorizontalOptions="Start"
+                                    Command="{Binding RequestNetWipeCommand}"
+                                    SemanticProperties.Description="Wipe this net's whole record on the radio" />
+
+                            <Label Style="{StaticResource ErrorCaption}" Text="{Binding InputError}"
+                                   IsVisible="{Binding HasInputError}" />
+                        </VerticalStackLayout>
+
+                        <!-- ================== Net list tab ================== -->
+                        <!-- Ten READ-ONLY rows in the headed-cell style: the
+                             column headings are carried ONCE at the top of the
+                             table, and every row uses the same CellValue style
+                             and CellWidth* keys as the Operate pane's "Current
+                             net" row, so the columns line up and the widths
+                             stay tunable in one place (K1). The value column is
+                             headed "Frequencies (MHz)" in BOTH panes (BD1) and
+                             its cells come from the shared HopNetDisplay
+                             vocabulary, so one mirror state cannot render two
+                             ways. No controls anywhere in this tab. -->
+                        <VerticalStackLayout Spacing="6" IsVisible="False">
+                            <VerticalStackLayout.Triggers>
+                                <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsListTabOpen}" Value="True">
+                                    <Setter Property="IsVisible" Value="True" />
+                                </DataTrigger>
+                            </VerticalStackLayout.Triggers>
+
+                            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                                <Label Text="Net" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource CellWidthNet}" />
+                                <Label Grid.Column="1" Text="ID" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource CellWidthId}" />
+                                <Label Grid.Column="2" Text="Type" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource CellWidthType}" />
+                                <Label Grid.Column="3" Text="Frequencies (MHz)" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource CellWidthValue}" />
+                            </Grid>
+
+                            <VerticalStackLayout Spacing="6"
+                                                 BindableLayout.ItemsSource="{Binding Rows}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:HopNetListRow">
+                                        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                                            <Label Text="{Binding NumberText}" Style="{StaticResource CellValue}"
+                                                   WidthRequest="{StaticResource CellWidthNet}"
+                                                   SemanticProperties.Description="Net number" />
+                                            <Label Grid.Column="1" Text="{Binding NetIdText}" Style="{StaticResource CellValue}"
+                                                   WidthRequest="{StaticResource CellWidthId}"
+                                                   SemanticProperties.Description="Reported net ID" />
+                                            <Label Grid.Column="2" Text="{Binding TypeText}" Style="{StaticResource CellValue}"
+                                                   WidthRequest="{StaticResource CellWidthType}"
+                                                   SemanticProperties.Description="Reported hop type" />
+                                            <Label Grid.Column="3" Text="{Binding ValueText}" Style="{StaticResource CellValue}"
+                                                   WidthRequest="{StaticResource CellWidthValue}"
+                                                   SemanticProperties.Description="Reported frequencies in MHz" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ============ Exclusion bands (round 11 §7, R11/X9) ============
+                 A NEW section, and its OWN card: the wire's `EXC` names no net,
+                 so this table is GLOBAL and does not belong inside the
+                 per-net editor above.
+
+                 The LIST-editor idiom, verbatim from the hop-frequency editor
+                 beside it: a header row, read-only value cells with a per-row
+                 Remove, then one add row. Per-row Remove is UNCONFIRMED — the
+                 round-10 §5 popup matrix covers whole-record destruction
+                 (Clear net / Delete address / Erase) and explicitly does NOT
+                 extend to per-row Removes.
+
+                 THREE DISPLAY STATES, from the Core mirror (invariant 6):
+                 UNREAD renders exactly ONE hyphen row (no Remove beside it);
+                 READ-EMPTY renders the caption; rows otherwise. The two are
+                 distinguishable only because the read is sentinel-bracketed —
+                 an empty exclusion table answers NOTHING AT ALL.
+
+                 MHz in, MHz out — but the SET command takes 8-DIGIT Hz, and
+                 the conversion asserts exactly eight digits before the send
+                 (the 5-digit rule's sibling: the radio silently IGNORES a
+                 wrongly-shaped frequency, so a short value is misread, not
+                 refused).
+
+                 WIRE SHAPES PROVISIONAL (plan §14) except the captured
+                 single-band echo: the multi-band listing layout, the DEL echo
+                 variants and the band bounds are patterned, not observed.
+
+                 ROW BUDGET (literal columns, the round-11 §4 idiom):
+                 56 + 76 + 76 + 3x8 = 232 dp of fixed cells, plus the
+                 action-class Remove (~84) = 316 <= 336 dp of phone card
+                 content. "29.995" is six Consolas-18 glyphs (~60 dp) <= 76. -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Exclusion bands" Style="{StaticResource CardHeading}" />
+
+                    <!-- The two wire facts no control on screen shows. -->
+                    <Label Style="{StaticResource Caption}"
+                           Text="{x:Static vm:HopSettingsViewModel.ExcludeCaption}" />
+
+                    <VerticalStackLayout Spacing="10" IsEnabled="{Binding AreControlsEnabled}">
+
+                        <!-- Header row. The Remove column is deliberately
+                             UNHEADED — a heading over a column of buttons names
+                             nothing (§3's table rule, as applied to the
+                             hop-frequency editor above). -->
+                        <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
+                            <Label Text="Band" Style="{StaticResource CellHeading}"
+                                   WidthRequest="56" />
+                            <Label Grid.Column="1" Text="Low (MHz)" Style="{StaticResource CellHeading}"
+                                   WidthRequest="76" />
+                            <Label Grid.Column="2" Text="High (MHz)" Style="{StaticResource CellHeading}"
+                                   WidthRequest="76" />
+                        </Grid>
+
+                        <VerticalStackLayout Spacing="6"
+                                             BindableLayout.ItemsSource="{Binding ExcludeDisplayRows}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:HopExcludeRow">
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
+                                        <Label Text="{Binding BandText}" Style="{StaticResource CellValue}"
+                                               WidthRequest="56"
+                                               SemanticProperties.Description="Exclusion band slot" />
+                                        <Label Grid.Column="1" Text="{Binding LowText}" Style="{StaticResource CellValue}"
+                                               WidthRequest="76"
+                                               SemanticProperties.Description="Excluded band low edge in MHz" />
+                                        <Label Grid.Column="2" Text="{Binding HighText}" Style="{StaticResource CellValue}"
+                                               WidthRequest="76"
+                                               SemanticProperties.Description="Excluded band high edge in MHz" />
+                                        <!-- Hidden on the UNREAD placeholder: a
+                                             Remove beside a hyphen would offer
+                                             to delete the marker. -->
+                                        <Button Grid.Column="3" Text="Remove" Style="{StaticResource Segment}"
+                                                HorizontalOptions="End"
+                                                IsVisible="{Binding CanRemove}"
+                                                Command="{Binding RemoveBand}"
+                                                CommandParameter="{Binding BandText}"
+                                                SemanticProperties.Description="Remove this exclusion band from the radio" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+
+                        <!-- State 2 of three: the radio's ANSWERED-and-empty
+                             table. The unread state is the hyphen ROW above. -->
+                        <Label Style="{StaticResource Caption}"
+                               IsVisible="{Binding HasNoExcludeBands}"
+                               Text="{x:Static vm:HopSettingsViewModel.NoExcludeBandsCaption}" />
+
+                        <!-- Add row → the NEXT FREE band slot 0-9. -->
+                        <Grid ColumnDefinitions="Auto,*,*,Auto" ColumnSpacing="6">
+                            <!-- "Add band", NOT "Add": the type-section guard
+                                 LOCATES the net editor's LIST section by a
+                                 Label whose Text is exactly "Add" (invariant 6),
+                                 and a second one would make that anchor
+                                 ambiguous. -->
+                            <Label VerticalOptions="Center" Style="{StaticResource Caption}"
+                                   Text="Add band" WidthRequest="56" />
+                            <Entry Grid.Column="1" Keyboard="Numeric"
+                                   Placeholder="Low MHz"
+                                   Text="{Binding ExcludeLowInput, Mode=TwoWay}"
+                                   ReturnCommand="{Binding AddExcludeBandCommand}"
+                                   SemanticProperties.Description="Exclusion band low edge in MHz" />
+                            <Entry Grid.Column="2" Keyboard="Numeric"
+                                   Placeholder="High MHz"
+                                   Text="{Binding ExcludeHighInput, Mode=TwoWay}"
+                                   ReturnCommand="{Binding AddExcludeBandCommand}"
+                                   SemanticProperties.Description="Exclusion band high edge in MHz" />
+                            <Button Grid.Column="3" Text="Add" Style="{StaticResource Segment}"
+                                    Command="{Binding AddExcludeBandCommand}"
+                                    SemanticProperties.Description="Add this exclusion band to the radio's next free band slot" />
+                        </Grid>
+
+                        <!-- Why Add is unavailable: all ten slots used, or the
+                             table has not been read yet (adding into an unknown
+                             table would have to GUESS a free slot). -->
+                        <Label Style="{StaticResource Caption}"
+                               IsVisible="{Binding HasAddExcludeBandDisabledReason}"
+                               Text="{Binding AddExcludeBandDisabledReason}" />
+
+                        <Label Style="{StaticResource ErrorCaption}" Text="{Binding ExcludeError}"
+                               IsVisible="{Binding HasExcludeError}" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- The shared radio clock (round-4 AD/K2): the same
+                 DeviceClockView as Radio settings, over the same VM state,
+                 OUTSIDE the pane's grey gate — the clock is global. -->
+            <parts:DeviceClockView />
+
+            <!-- ROUND 9: the pane-bottom Refresh button is DELETED (the BG6
+                 bottom-of-pane instance retires with it). Under the unified
+                 read doctrine an EDITOR landing re-reads its target every
+                 time — a picker spin and a programming-tab landing each send
+                 DIS n (+ HOPLIST n for a confirmed LIST net) — so a manual
+                 "read the radio" button here answered a question the picker
+                 already answers. Refresh buttons now exist ONLY on
+                 expensive-bulk list surfaces (the SSB channel list tab's
+                 DI ×100), which keeps its own. -->
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentView>

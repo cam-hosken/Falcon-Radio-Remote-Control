@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+	<application android:allowBackup="true" android:icon="@mipmap/appicon" android:roundIcon="@mipmap/appicon_round" android:supportsRtl="true"></application>
+	<!-- Stage 7 posture (plan §2.5):
+	     - NO network permissions: the app's entire I/O is a serial cable.
+	     - NO usb-device attach intent-filter: no auto-launch on plug; USB
+	       permission is requested at runtime from the Settings Refresh /
+	       Connect gestures (system dialog, per-device). The vendored
+	       library's broadcast receiver ALSO auto-requests permission when
+	       a device attaches while the app is running (accepted lib
+	       behavior — Stage 7 audit F1).
+	     - Minimal set below: the ConnectedDevice foreground service, its
+	       wake lock, and its notification. Nothing else. -->
+	<!-- USB OTG host mode is the app's only transport — filter the app out
+	     of stores/installs on devices without USB host support. -->
+	<uses-feature android:name="android.hardware.usb.host" android:required="true" />
+	<!-- RadioForegroundService: keeps the process privileged while the radio
+	     link is open (ConnectedDevice type — API 34+ requires the typed
+	     permission alongside the base one). -->
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+	<!-- PARTIAL_WAKE_LOCK held by the service while the link is up: the FGS
+	     keeps the process alive but not the CPU — Doze would stretch the
+	     reconnect poller / watchdog timers to multi-minute cadence. -->
+	<uses-permission android:name="android.permission.WAKE_LOCK" />
+	<!-- Android 13+ runtime permission for the foreground-service
+	     notification; denial degrades visibility, never function. -->
+	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+</manifest>

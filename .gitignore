@@ -1,0 +1,31 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Rider
+.idea/
+
+# Test results
+TestResults/
+*.trx
+
+# MAUI / Android intermediates
+*.apk
+*.aab
+*.keystore
+
+# NuGet
+*.nupkg
+packages/
+
+# OS cruft
+Thumbs.db
+.DS_Store
+.claude/
+src/Falcon.App/signing.local.props

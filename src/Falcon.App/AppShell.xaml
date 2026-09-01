@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+    Shell structure (GUI rejigger N3/N5): four destinations — Operate ·
+    Mode settings · Radio settings · Connection settings — as ONE set of
+    ShellContents, no forked pages. Messages/LQA folded into the ALE pane
+    (N1, Wave-1 W4); Console lives inside Radio settings (E4).
+
+    N5: the flyout is DEAD on every platform — both idioms render the
+    destinations as a Shell TAB BAR (top-anchored on Windows, bottom tabs
+    on Android; reverses the Stage 8 desktop-flyout choice, chrome only).
+
+    N2 (SUPERSEDED by clone round 12 §6 F2): the Connect ⇄ Disconnect toggle
+    was a Shell.TitleView button. It now lives full-width at the bottom of
+    the Connection settings page — the screen the app opens on — because that
+    is where the operator is when they connect. ConnectToggleViewModel is
+    unchanged; only the view moved.
+
+    CLONE ROUND 12 §6 F7: the title view is
+    [app icon][FalconRC][spacer][About]. The icon is the falconrc_icon
+    MauiImage (the app-icon artwork again — a MauiIcon is not addressable
+    from an Image Source); the About button is TitleBarFlat (owner ruling:
+    low-profile, like the tab-bar items) and takes the right-edge slot, and
+    the margin, the Connect button vacated. It PUSHES the About page
+    (INavigator.GoToAbout), so platform back returns.
+-->
+<Shell
+    x:Class="Falcon.App.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:views="clr-namespace:Falcon.App.Views"
+    Title="FalconRC"
+    FlyoutBehavior="Disabled">
+
+    <Shell.TitleView>
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+            <Image x:Name="AppIconImage"
+                   Source="falconrc_icon.png"
+                   HeightRequest="24"
+                   WidthRequest="24"
+                   VerticalOptions="Center"
+                   SemanticProperties.Description="FalconRC" />
+            <Label Grid.Column="1" Text="FalconRC" Style="{StaticResource StatusText}" VerticalOptions="Center" />
+            <Button x:Name="AboutButton" Grid.Column="2"
+                    Text="About"
+                    Clicked="OnAboutClicked"
+                    Style="{StaticResource TitleBarFlat}"
+                    Margin="0,0,8,0"
+                    SemanticProperties.Description="Open the About page" />
+        </Grid>
+    </Shell.TitleView>
+
+    <TabBar>
+
+        <ShellContent
+            Title="Operate"
+            Route="operate"
+            ContentTemplate="{DataTemplate views:OperatePage}" />
+
+        <ShellContent
+            Title="Mode settings"
+            Route="modesettings"
+            ContentTemplate="{DataTemplate views:ModeSettingsPage}" />
+
+        <ShellContent
+            Title="Radio settings"
+            Route="radiosettings"
+            ContentTemplate="{DataTemplate views:RadioSettingsPage}" />
+
+        <!-- F1: the tab ORDER is unchanged (Operate is still leftmost); the
+             shell's CurrentItem is set to THIS content at construction, which
+             is why it carries a name. -->
+        <ShellContent
+            x:Name="ConnectionSettingsTab"
+            Title="Connection settings"
+            Route="settings"
+            ContentTemplate="{DataTemplate views:SettingsPage}" />
+
+    </TabBar>
+
+</Shell>

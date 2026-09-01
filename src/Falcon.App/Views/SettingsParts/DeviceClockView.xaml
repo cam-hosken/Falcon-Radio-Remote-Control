@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    ONE radio clock, ONE look (UI-tweaks round 4, AD / Contract K2).
+
+    The radio clock is DEVICE-WIDE state: `TI` is answered in every mode and
+    `TIME`+`DAT`+`DAY` set the same value from anywhere. Round 3 shipped it
+    twice — a "Time" card on the HOP Operate pane and a "Radio clock" row on
+    Radio settings — with two different looks over two different VMs. This
+    ContentView is the single component both placements now use:
+
+      Radio settings -> Settings tab, and Mode settings -> HOP tab.
+
+    Same headings, same Option-B confirmed display, same button text, and the
+    SAME state underneath (DeviceSettingsViewModel, a DI singleton bound in
+    code-behind — the ConsoleSection house pattern), so the two placements can
+    never disagree.
+
+    Constitution: the TOD display is ONE-WAY from the confirmed mirror and
+    reads "—" until the radio reports a TIME line; pressing Set moves NOTHING
+    on screen — only the radio's own answer does.
+
+    Gating: Ready ALONE. The clock is not mode state, so in the HOP settings
+    pane this card sits OUTSIDE the pane's confirmed-HOP grey gate (K2), and
+    the button's own CanExecute (session Ready) is the only gate either
+    placement applies.
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             x:Class="Falcon.App.Views.SettingsParts.DeviceClockView"
+             x:DataType="vm:DeviceSettingsViewModel">
+    <Border Style="{StaticResource Card}">
+        <VerticalStackLayout Spacing="10">
+            <Label Text="Radio clock" Style="{StaticResource CardHeading}" />
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                <Label Grid.Column="0" VerticalOptions="Center" Style="{StaticResource Caption}"
+                       Text="Radio TOD" />
+                <Border Grid.Column="1" Style="{StaticResource ValueDisplay}"
+                        WidthRequest="{StaticResource ValueWidthWide}"
+                        SemanticProperties.Description="Radio time of day reported by the radio">
+                    <Label Style="{StaticResource ValueDisplayText}"
+                           Text="{Binding RadioTodText}" />
+                </Border>
+                <Button Grid.Column="2" Text="Set from device clock" Style="{StaticResource Segment}"
+                        Command="{Binding SetTimeFromDeviceCommand}"
+                        SemanticProperties.Description="Set the radio clock from this device (sends TIME, DAT and DAY)" />
+            </Grid>
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

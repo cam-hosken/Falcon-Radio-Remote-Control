@@ -1,0 +1,691 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Radio settings page (GUI rejigger E4): two plain sub-tabs, NO mode
+    semantics, always accessible (renders "—" disconnected):
+
+    - Settings: the genuinely mode-free-on-the-wire set (backlight,
+      contrast, date/time, battery display) — Wave-2 content, labeled
+      placeholder for now.
+    - Console: the existing Console page relocated WHOLE (filter / pause /
+      copy / save-share; ConsoleViewModel bindings verbatim). Its
+      standalone shell tab is deleted.
+
+    The page root binds RadioSettingsViewModel (tab view state — sends
+    nothing); the Console section's BindingContext is ConsoleViewModel,
+    set in code-behind (the SettingsPage RadioPortSection pattern).
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             xmlns:parts="clr-namespace:Falcon.App.Views.SettingsParts"
+             xmlns:ctl="clr-namespace:Falcon.App.Controls"
+             x:Class="Falcon.App.Views.RadioSettingsPage"
+             x:DataType="vm:RadioSettingsViewModel"
+             Title="Radio settings">
+
+    <ContentPage.Resources>
+        <!-- CLONE ROUND 12 §9 C1: the house choice-row template, identical to
+             SsbSettingsPaneView's. One highlighted Segment per ChoiceItem,
+             highlight from the CONFIRMED IsActive only. It is declared here
+             rather than shared from App.xaml because App.xaml holds the
+             STYLE/width vocabulary, not DataTemplates — the same local
+             declaration the settings panes already use. -->
+        <DataTemplate x:Key="ChoiceButton" x:DataType="vm:ChoiceItem">
+            <Button Text="{Binding Value}" Style="{StaticResource Segment}"
+                    WidthRequest="{StaticResource SegmentWidth}"
+                    Command="{Binding SelectCommand}"
+                    SemanticProperties.Description="{Binding Value}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsActive}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                        <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+        </DataTemplate>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*" Padding="{OnIdiom Default=12, Phone=8}" RowSpacing="{OnIdiom Default=12, Phone=8}">
+
+        <!-- Sub-tabs (view state; sends nothing) — full-width (J2). -->
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+            <Button Text="Settings" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                    Command="{Binding OpenSettingsCommand}"
+                    SemanticProperties.Description="Radio settings tab">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsConsoleOpen}" Value="False">
+                        <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                        <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+            <Button Grid.Column="1" Text="Console" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                    Command="{Binding OpenConsoleCommand}"
+                    SemanticProperties.Description="Console tab">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsConsoleOpen}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                        <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+        </Grid>
+
+        <!-- ==================== Settings tab (Wave 2 content) =============
+             The device-wide, mode-FREE set (backlight, contrast, date/time,
+             battery). The OUTER Grid keeps the page VM so its visibility
+             trigger (IsConsoleOpen) resolves; the inner SettingsSection
+             rebinds to DeviceSettingsViewModel in code-behind (the
+             ConsoleSection pattern). Always accessible — renders "—"
+             disconnected; controls gate on the session being Ready. -->
+        <Grid Grid.Row="1" IsVisible="True">
+            <Grid.Triggers>
+                <DataTrigger TargetType="Grid" Binding="{Binding IsConsoleOpen}" Value="True">
+                    <Setter Property="IsVisible" Value="False" />
+                </DataTrigger>
+            </Grid.Triggers>
+            <ScrollView x:Name="SettingsSection" x:DataType="vm:DeviceSettingsViewModel">
+                <VerticalStackLayout Spacing="{OnIdiom Default=12, Phone=8}">
+
+                    <!-- Display (T1): the Backlight and Contrast cards MERGE
+                         into one card — they are the same subject, the front
+                         panel's display. The row labels drop their console
+                         parentheticals ("(LIG)"/"(INT)"/"(CONT)" — F1 spirit).
+                         Round 4 (AC): all three rows carry an Option-B
+                         confirmed display (the ALE numeric idiom) left of
+                         their control — fixed width, "—" until the radio
+                         reports, never moved by a set. The backlight
+                         function/intensity readouts are PROVISIONAL
+                         (old-app-derived LIGHT/INTENSITY shapes, protocol.md
+                         round-4 subsection) and show the payload VERBATIM,
+                         which is why intensity may read "04" against a 0-8
+                         entry — the bench confirms the padding, the app does
+                         not pretty it up. -->
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Display" Style="{StaticResource CardHeading}" />
+                            <!-- CLONE ROUND 12 §9 C1: the backlight FUNCTION
+                                 row. Round 4 gave it an accent ValueDisplay
+                                 chip beside two Segment buttons that carried NO
+                                 triggers — so nothing on the row could ever
+                                 highlight, and the operator had to read the
+                                 chip to learn what was set. It is now the house
+                                 ChoiceItem row off the CONFIRMED mirror (the
+                                 SsbSettingsPaneView idiom) and the chip is
+                                 DELETED: the highlight IS the readout, so a
+                                 second element saying the same thing is a
+                                 second thing to keep in sync.
+                                 The OFF/MOM labels (round 11 §3, owner ruling
+                                 R6) moved into the VM with the choices; the
+                                 WIRE tokens come from BacklightFunction.ToWire
+                                 and never appear in this markup, so a label
+                                 rename can no longer take a wire token with
+                                 it. -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                <Label Grid.Column="0" VerticalOptions="Center" Style="{StaticResource Caption}"
+                                       Text="Backlight" />
+                                <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                                       BindableLayout.ItemsSource="{Binding BacklightFunctionChoices}"
+                                                       BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                            </Grid>
+                            <!-- CLONE ROUND 12 §9 C2: intensity and contrast
+                                 become ◀/▶ chevron pairs, SEND-ON-PRESS. A
+                                 press sends CONFIRMED ± 1, clamped 0-8 with NO
+                                 wrap; the chevrons are disabled until the radio
+                                 has reported a value to step from. The Option-B
+                                 confirmed readout stays exactly where it was —
+                                 this is NOT a pending-pick control, so the
+                                 display still moves only on the radio's answer
+                                 and there is no ui.md ledger deviation. The
+                                 numeric Entry + Set pair each row used, and the
+                                 card's shared client-side error caption, are
+                                 retired with them.
+                                 44 dp both dimensions (ui.md's touch-target
+                                 rule; ChevronGeometryGuardTests enforces it
+                                 across every chevron in the app).
+
+                                 ROUND 13 C2 (backlog item 8, owner
+                                 2026-08-19): the chevrons now FLANK the value —
+                                 label · ◀ · [value] · ▶ — instead of sitting
+                                 together to its right. Same four columns, same
+                                 44 dp, same commands; the children are
+                                 re-columned and nothing else. This was the
+                                 app's last non-flanking wheel, so the whole app
+                                 now reads the one way (ui.md's wheel idiom). -->
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                                <Label Grid.Column="0" VerticalOptions="Center" Style="{StaticResource Caption}"
+                                       Text="Backlight intensity" />
+                                <Button Grid.Column="1" Text="◀" FontSize="10" Padding="0"
+                                        WidthRequest="44" HeightRequest="44"
+                                        Command="{Binding BacklightIntensityDownCommand}"
+                                        SemanticProperties.Description="Backlight intensity down" />
+                                <Border Grid.Column="2" Style="{StaticResource ValueDisplay}"
+                                        WidthRequest="{StaticResource ValueWidthNarrow}"
+                                        SemanticProperties.Description="Backlight intensity reported value">
+                                    <Label Style="{StaticResource ValueDisplayText}"
+                                           Text="{Binding BacklightIntensityText}" />
+                                </Border>
+                                <Button Grid.Column="3" Text="▶" FontSize="10" Padding="0"
+                                        WidthRequest="44" HeightRequest="44"
+                                        Command="{Binding BacklightIntensityUpCommand}"
+                                        SemanticProperties.Description="Backlight intensity up" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                                <Label Grid.Column="0" VerticalOptions="Center" Style="{StaticResource Caption}"
+                                       Text="Contrast" />
+                                <Button Grid.Column="1" Text="◀" FontSize="10" Padding="0"
+                                        WidthRequest="44" HeightRequest="44"
+                                        Command="{Binding ContrastDownCommand}"
+                                        SemanticProperties.Description="Contrast down" />
+                                <Border Grid.Column="2" Style="{StaticResource ValueDisplay}"
+                                        WidthRequest="{StaticResource ValueWidthNarrow}"
+                                        SemanticProperties.Description="Contrast reported value">
+                                    <Label Style="{StaticResource ValueDisplayText}"
+                                           Text="{Binding ContrastText}" />
+                                </Border>
+                                <Button Grid.Column="3" Text="▶" FontSize="10" Padding="0"
+                                        WidthRequest="44" HeightRequest="44"
+                                        Command="{Binding ContrastUpCommand}"
+                                        SemanticProperties.Description="Contrast up" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Radio clock (round 4, AD/K2): the ONE shared clock
+                         component, used identically on Mode settings → HOP.
+                         Its BindingContext is the same DeviceSettingsViewModel
+                         singleton, resolved in the view's own code-behind. -->
+                    <parts:DeviceClockView />
+
+                    <!-- Battery status — display only; keeps its own card
+                         (T1). The "(BAT ST)" parenthetical is dropped. -->
+                    <Border Style="{StaticResource Card}">
+                        <!-- Round 10 §3: this card's title is a CARD HEADING
+                             like every other card's, and the battery line is
+                             STATUS, not a caption. -->
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Battery status" Style="{StaticResource CardHeading}" />
+                            <Label Style="{StaticResource StatusText}" Text="{Binding BatteryText}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- CLONE ROUND 12 §9 C2: the card's shared client-side
+                         error caption is DELETED with the two numeric Entries
+                         that were its only producers. The chevrons cannot
+                         produce an out-of-range value (they clamp), so there is
+                         nothing left for this card to validate; radio-side
+                         rejections still surface through the error toast like
+                         every other command. -->
+
+                    <!-- Modem presets (round 8 EE, X7): the two-tab preset
+                         read + programming card. Own VM (a DI singleton),
+                         bound in the view's code-behind — the DeviceClockView
+                         pattern. -->
+                    <parts:ModemPresetsView />
+
+                    <!-- Cloning (round 11 §9A, REORGANIZED by
+                         plan-clone-pane-cleanup) — the round-4 AL3 stub, wired,
+                         and now a TWO-TAB surface. Its own VM (a DI singleton)
+                         bound in code-behind, the DeviceClockView /
+                         ModemPresetsView pattern.
+
+                         The card grew by accretion and read as one undivided
+                         pile: two always-on file labels, one shared outcome
+                         list serving BOTH operations and clearable by neither,
+                         and no sign that a file must be in hand before "Write
+                         file to radio". It is now READ and WRITE, on the Modem
+                         presets segment-pair idiom, each reading top to bottom
+                         in operator order with its own status line and its own
+                         clearable report.
+
+                         READ: press · gate reason · status · where the file
+                         went · Store/Share. WRITE, in three headed sections:
+                         Clone file (open + the ONE file line + the open
+                         notice), ALE identity (the R-A table, moved verbatim),
+                         Write (press · gate reason · status · report).
+
+                         D13: a read SAVES NOTHING. It leaves a file in hand
+                         that the Write tab calls "not saved", and the Store and
+                         Share presses are the only ways it leaves the app — a
+                         successful STORE is what names it, which is the bridge
+                         between the two tabs. Nothing greys silently: each
+                         tab's gate reason is a visible caption, and each
+                         outcome is a LIST rather than a count. -->
+                    <Border x:Name="CloningSection" x:DataType="vm:CloneViewModel"
+                            Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Cloning" Style="{StaticResource CardHeading}" />
+
+                            <!-- The tab strip: pure view state, sends nothing.
+                                 The ModemPresetsView mechanism verbatim — a
+                                 full-width Segment pair, each highlighted by a
+                                 DataTrigger on the ONE tab-state property. -->
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                                <Button Text="Read" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                                        Command="{Binding OpenReadTabCommand}"
+                                        SemanticProperties.Description="Show the read-from-radio tab">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsWriteTabOpen}" Value="False">
+                                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Grid.Column="1" Text="Write" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                                        Command="{Binding OpenWriteTabCommand}"
+                                        SemanticProperties.Description="Show the write-to-radio tab">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsWriteTabOpen}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </Grid>
+
+                            <!-- ========= READ tab ========= -->
+                            <VerticalStackLayout x:Name="CloneReadTab" Spacing="10" IsVisible="True">
+                                <VerticalStackLayout.Triggers>
+                                    <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsWriteTabOpen}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
+                                </VerticalStackLayout.Triggers>
+
+                                <Button Text="Read radio settings" Style="{StaticResource Segment}"
+                                        HorizontalOptions="Fill"
+                                        Clicked="OnCloneReadClicked"
+                                        IsEnabled="{Binding CanRead}"
+                                        SemanticProperties.Description="Read every readable setting from the radio into a file" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding ReadGateReason}"
+                                       IsVisible="{Binding HasReadGateReason}" />
+                                <Label Style="{StaticResource StatusText}" Text="{Binding ReadStatusText}" />
+
+                                <!-- ONE slot, TWO labels: where the file went
+                                     reads as an ordinary caption, and only a
+                                     real failure reads as an error. -->
+                                <Label Style="{StaticResource Caption}" Text="{Binding ReadFileNotice}"
+                                       IsVisible="{Binding ShowsReadFileNotice}" LineBreakMode="TailTruncation"
+                                       SemanticProperties.Description="Clone file result" />
+                                <Label Style="{StaticResource ErrorCaption}" Text="{Binding ReadFileNotice}"
+                                       IsVisible="{Binding ShowsReadFileError}" LineBreakMode="TailTruncation"
+                                       SemanticProperties.Description="Clone file result" />
+
+                                <!-- D13: THE TWO WAYS A FILE LEAVES THE APP,
+                                     side by side. The read itself saves
+                                     nothing — it used to persist a copy out of
+                                     the operator's sight and pop the share
+                                     sheet once — so these presses are the whole
+                                     story, and they sit directly under the
+                                     notice that reports what they did. Store
+                                     opens the system SAVE-LOCATION picker (the
+                                     operator chooses where the file goes);
+                                     Share offers the share sheet. Same gate:
+                                     a file in hand, nothing running. -->
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                                    <Button Text="Store file…" Style="{StaticResource Segment}"
+                                            HorizontalOptions="Fill"
+                                            Clicked="OnCloneStoreClicked"
+                                            IsEnabled="{Binding CanStore}"
+                                            SemanticProperties.Description="Choose where to save the clone file" />
+                                    <Button Grid.Column="1" Text="Share…" Style="{StaticResource Segment}"
+                                            HorizontalOptions="Fill"
+                                            Clicked="OnCloneShareClicked"
+                                            IsEnabled="{Binding CanStore}"
+                                            SemanticProperties.Description="Send the clone file to another app" />
+                                </Grid>
+
+                                <!-- The read's outcome accounting, and the
+                                     Clear that ends it. A BindableLayout, not a
+                                     CollectionView — this card lives inside the
+                                     page's ScrollView. -->
+                                <VerticalStackLayout Spacing="6" IsVisible="{Binding HasReadReport}">
+                                    <VerticalStackLayout Spacing="2"
+                                                         BindableLayout.ItemsSource="{Binding ReadReportLines}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <Label Style="{StaticResource Caption}" Text="{Binding .}" />
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+                                    <Button Text="Clear" Style="{StaticResource Segment}" HorizontalOptions="End"
+                                            Command="{Binding ClearReadReportCommand}"
+                                            SemanticProperties.Description="Clear the read report" />
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+
+                            <!-- ========= WRITE tab ========= -->
+                            <VerticalStackLayout x:Name="CloneWriteTab" Spacing="10" IsVisible="False">
+                                <VerticalStackLayout.Triggers>
+                                    <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsWriteTabOpen}" Value="True">
+                                        <Setter Property="IsVisible" Value="True" />
+                                    </DataTrigger>
+                                </VerticalStackLayout.Triggers>
+
+                                <!-- ===== Clone file ===== -->
+                                <Label Text="Clone file" Style="{StaticResource CardHeading}" />
+                                <Button Text="Open file…"
+                                        Style="{StaticResource Segment}" HorizontalOptions="End"
+                                        Clicked="OnCloneOpenClicked"
+                                        SemanticProperties.Description="Load a saved clone file" />
+                                <!-- The ONE file line: its name, where it came
+                                     from and what is in it. A read saved this
+                                     session names itself here (D3). -->
+                                <Label Style="{StaticResource StatusText}" Text="{Binding FileLine}" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding OpenFileNotice}"
+                                       IsVisible="{Binding ShowsOpenFileNotice}" LineBreakMode="TailTruncation"
+                                       SemanticProperties.Description="Clone file result" />
+                                <Label Style="{StaticResource ErrorCaption}" Text="{Binding OpenFileNotice}"
+                                       IsVisible="{Binding ShowsOpenFileError}" LineBreakMode="TailTruncation"
+                                       SemanticProperties.Description="Clone file result" />
+
+                                <!-- ===== ALE identity =====
+                                     The IDENTITY TABLE (owner ruling R-A,
+                                     plan-clone-field-round2 §3.3): one row per
+                                     self in the file, each with its own
+                                     disposition. It replaces round 11's single
+                                     picker + Entry, which could only ever move
+                                     the FIRST self and demoted it silently. A
+                                     BindableLayout, not a CollectionView — the
+                                     card lives inside the page's ScrollView.
+
+                                     ROUND 15 C-1: the rows are PER NET. A row a
+                                     net names is titled "Net HFL · group 2 ·
+                                     self W6HOS" and its picker offers only THAT
+                                     net's own individuals — cloning a net
+                                     promotes one of that net's stations to be
+                                     this radio's self. The title binding
+                                     carries all of it.
+
+                                     The heading replaces the old "ALE selfs for
+                                     write" caption: the section is now named
+                                     like every other section on this tab. -->
+                                <Label Text="ALE identity" Style="{StaticResource CardHeading}" />
+                                <!-- C-Q5 (round 15): an unread address book offers
+                                     NO identity rows — there is nothing
+                                     trustworthy to dispose of — and this caption
+                                     stands in their place. -->
+                                <Label Style="{StaticResource Caption}"
+                                       Text="Address book not read — re-read the source radio before writing."
+                                       IsVisible="{Binding ShowsBookNotRead}" />
+                                <!-- C-3: the radio refuses the whole fill unless a
+                                     1-3 character self is programmed FIRST, and
+                                     the write leads with the file's selfs in
+                                     order — so this file cannot be written. -->
+                                <Label Style="{StaticResource ErrorCaption}" Text="{Binding FillGateReason}"
+                                       IsVisible="{Binding HasFillGateReason}" />
+                                <VerticalStackLayout x:Name="CloneSelfRows" Spacing="8"
+                                                     BindableLayout.ItemsSource="{Binding SelfRows}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:SelfRowViewModel">
+                                            <VerticalStackLayout Spacing="4">
+                                                <Label Style="{StaticResource Caption}" Text="{Binding Title}" />
+                                                <Grid ColumnDefinitions="*,140" ColumnSpacing="6"
+                                                      IsVisible="{Binding OffersSwap}">
+                                                    <Label Grid.Column="0" VerticalOptions="Center"
+                                                           Style="{StaticResource Caption}" Text="Swap with" />
+                                                    <Picker Grid.Column="1"
+                                                            ItemsSource="{Binding SwapChoices}"
+                                                            SelectedItem="{Binding SwapSelection, Mode=TwoWay}"
+                                                            Title="(keep)"
+                                                            SemanticProperties.Description="Swap this self with an individual from the file" />
+                                                </Grid>
+                                                <Grid ColumnDefinitions="*,140" ColumnSpacing="6">
+                                                    <Label Grid.Column="0" VerticalOptions="Center"
+                                                           Style="{StaticResource Caption}" Text="…or a new name" />
+                                                    <Entry Grid.Column="1" Placeholder="callsign"
+                                                           Text="{Binding ReplaceInput, Mode=TwoWay}"
+                                                           MaxLength="{Binding NameLength}"
+                                                           SemanticProperties.Description="Type a new ALE name to take this self's place" />
+                                                </Grid>
+                                                <!-- D2: the scan-gate self is
+                                                     Replace-only, 1-3 characters. -->
+                                                <Label Style="{StaticResource Caption}"
+                                                       IsVisible="{Binding IsScanGateSelf}"
+                                                       Text="Scan-gate self: replace with a 1-3 character name; swapping is not offered." />
+                                            </VerticalStackLayout>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                                <Label Style="{StaticResource ErrorCaption}" Text="{Binding IdentityError}"
+                                       IsVisible="{Binding HasIdentityError}" />
+
+                                <!-- ===== Write ===== -->
+                                <Label Text="Write" Style="{StaticResource CardHeading}" />
+                                <Button Text="Write file to radio" Style="{StaticResource Segment}"
+                                        HorizontalOptions="Fill"
+                                        Command="{Binding WriteCommand}"
+                                        SemanticProperties.Description="Program the loaded file back into the radio" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding WriteGateReason}"
+                                       IsVisible="{Binding HasWriteGateReason}" />
+                                <Label Style="{StaticResource StatusText}" Text="{Binding WriteStatusText}" />
+
+                                <VerticalStackLayout Spacing="6" IsVisible="{Binding HasWriteReport}">
+                                    <VerticalStackLayout Spacing="2"
+                                                         BindableLayout.ItemsSource="{Binding WriteReportLines}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <Label Style="{StaticResource Caption}" Text="{Binding .}" />
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+                                    <Button Text="Clear" Style="{StaticResource Segment}" HorizontalOptions="End"
+                                            Command="{Binding ClearWriteReportCommand}"
+                                            SemanticProperties.Description="Clear the write report" />
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Y2: settings-pane Refresh buttons are RIGHT-aligned.
+                         Round 5 (BH1, owner ruling): the button moves BELOW
+                         the Cloning card, so it is the LAST element on the
+                         page — the standing "Refresh at the bottom of the
+                         pane" rule, which the round-4 Cloning card had
+                         accidentally displaced by landing underneath it. -->
+                    <!-- Round 10 §6: the label names the SCOPE. MARKUP ONLY —
+                         DeviceSettingsViewModel.SendDeviceReads() already
+                         queries LIG, INT, CONT, BAT ST and TI
+                         (transcript-pinned), so the button's behavior is
+                         exactly what it now says it is. -->
+                    <Button Text="Refresh device settings" Style="{StaticResource Segment}" HorizontalOptions="End"
+                            Command="{Binding RefreshDeviceSettingsCommand}"
+                            SemanticProperties.Description="Re-read every device setting from the radio" />
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </Grid>
+
+        <!-- ==================== Console tab =============================== -->
+        <!-- The ENTIRE Console page content, relocated verbatim (plan §4.5 /
+             E4): scrolling TX/RX line log — monospace, timestamps,
+             TX/RX/AUTO/ERR badges. Everything the app sends is visible here,
+             including compensation writes (principle #4). Pause freezes the
+             view (buffer keeps collecting); Copy puts the VISIBLE (filtered)
+             log on the clipboard; the filter is view-only (the backing
+             buffer keeps every line); Save/Share exports the full unfiltered
+             buffer. Bounded buffer (ConsoleViewModel.MaxEntries).
+             BindingContext = ConsoleViewModel, set in code-behind. -->
+        <!-- Outer grid inherits the page VM (tab visibility); the inner
+             ConsoleSection rebinds to ConsoleViewModel in code-behind. -->
+        <Grid Grid.Row="1" IsVisible="{Binding IsConsoleOpen}">
+        <Grid x:Name="ConsoleSection" x:DataType="vm:ConsoleViewModel"
+              RowDefinitions="Auto,Auto,*" RowSpacing="8">
+
+            <!-- T1: the TOOLBAR is framed as a card (the Console was
+                 relocated verbatim in the rejigger and never got the card
+                 treatment). The LOG below stays FULL-BLEED — a border there
+                 would only cost visible log lines. -->
+            <Border Style="{StaticResource Card}">
+            <!-- D21 (owner 2026-08-30: "the buttons are vertically spaced too
+                 close together"). Every child of this WRAPPING toolbar carries a
+                 BOTTOM margin of 8 as well as its right one: FlexLayout gives a
+                 wrapped row no spacing of its own, so on a narrow phone — where
+                 these eight controls reflow onto three or four rows — the rows
+                 touched. The 8 is the toolbar's existing horizontal gap, reused,
+                 so the grid reads square. CONSOLE CARD ONLY: the Cloning card's
+                 rows are Grids with their own RowSpacing and are untouched. -->
+            <FlexLayout Wrap="Wrap" AlignItems="Center">
+                <!-- Round 10 §3: the console TOOLBAR is not exempt — its three
+                     style-less buttons join the ACTION class (Segment style,
+                     natural width). The TERMINAL AREA below (rows, typography,
+                     the 220-dp filter, no headers) stays exempt, ledgered. -->
+                <Button Text="Pause" Style="{StaticResource Segment}"
+                        Command="{Binding TogglePauseCommand}"
+                        MinimumHeightRequest="44" Margin="0,4,8,4"
+                        SemanticProperties.Description="Pause or resume the console log">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsPaused}" Value="True">
+                            <Setter Property="Text" Value="Resume" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Text="Copy" Style="{StaticResource Segment}"
+                        Clicked="OnCopyClicked"
+                        MinimumHeightRequest="44" Margin="0,4,8,4"
+                        SemanticProperties.Description="Copy the visible console log to the clipboard" />
+                <!-- D17: the Console's export UNIFIES with the Cloning card's
+                     D13 model. The single platform-split button (Android
+                     'Share…' / Windows 'Save', whose Windows half wrote
+                     SILENTLY into the operator's Documents folder) becomes the
+                     SAME PAIR as the card: "Store file…" opens the system
+                     save-location picker on BOTH platforms, "Share…" offers
+                     the share sheet. Both export the FULL unfiltered buffer —
+                     a leftover filter must never silently narrow a bench
+                     report.
+                     LAYOUT DEVIATION from the card's two-column Grid, on
+                     purpose: this is the WRAPPING toolbar, and its buttons are
+                     ACTION class (natural width, `Pause`/`Copy` beside them).
+                     A fixed two-column pair cannot wrap, so on a narrow phone
+                     it would clip where these two reflow. -->
+                <Button Text="Store file…" Style="{StaticResource Segment}"
+                        Clicked="OnConsoleStoreClicked"
+                        MinimumHeightRequest="44" Margin="0,4,8,4"
+                        SemanticProperties.Description="Choose where to save the console log" />
+                <Button Text="Share…" Style="{StaticResource Segment}"
+                        Clicked="OnConsoleShareClicked"
+                        MinimumHeightRequest="44" Margin="0,4,8,4"
+                        SemanticProperties.Description="Send the console log to another app" />
+                <!-- Filter is APP-SIDE view state (two-way legal): narrows the
+                     view only; matches line text or badge (TX/RX/AUTO/ERR). -->
+                <Entry Placeholder="filter (text or TX/RX/AUTO/ERR)"
+                       Text="{Binding FilterText, Mode=TwoWay}"
+                       WidthRequest="220" MinimumHeightRequest="44" Margin="0,4,8,4"
+                       ClearButtonVisibility="WhileEditing"
+                       SemanticProperties.Description="Filter the console log" />
+                <!-- D21: the bottom margin only. This one never carried a RIGHT
+                     margin (it is the toolbar's one inline word, not a control),
+                     and giving it one would move the layout beyond the spacing
+                     fix the owner asked for. -->
+                <Label Text="paused" Style="{StaticResource WarnCaption}" FontAttributes="Bold"
+                       VerticalOptions="Center" Margin="0,4,0,4" IsVisible="{Binding IsPaused}" />
+                <!-- D18 (2026-08-30): the GATED RAW-COMMAND INPUT. The toggle
+                     is the Pause/Resume idiom — one command, one bound flag,
+                     the text flipped by a DataTrigger — and it starts OFF at
+                     every app run (ConsoleViewModel.InputEnabled, never
+                     persisted). The Entry and Send bind the VM's gate
+                     properties and carry NO logic of their own: `InputEnabled`
+                     arms the box, `CanSend` adds "non-blank" and "no clone
+                     campaign on the wire". The line goes through the Core's
+                     raw passthrough and the transport's write queue like every
+                     other send, so its TX row appears in the log below without
+                     an echo of its own.
+                     THEY LIVE IN THIS TOOLBAR on purpose: it already WRAPS, so
+                     the input row reflows on a narrow phone instead of
+                     clipping — the same reason D17's export pair is here. -->
+                <!-- Keyboard="Plain" is the no-suggestions keyboard: no
+                     autocapitalisation, no autocorrect, no predictive text. A
+                     phone keyboard that helpfully capitalises or "corrects" a
+                     wire command sends a different command than the one the
+                     operator typed. ReturnCommand is the SAME command the Send
+                     button runs, so the return key sends. -->
+                <Entry Placeholder="command"
+                       Text="{Binding InputText, Mode=TwoWay}"
+                       IsEnabled="{Binding InputEnabled}"
+                       ReturnCommand="{Binding SendCommand}"
+                       ReturnType="Send"
+                       Keyboard="Plain"
+                       WidthRequest="220" MinimumHeightRequest="44" Margin="0,4,8,4"
+                       ClearButtonVisibility="WhileEditing"
+                       SemanticProperties.Description="Command to send to the radio" />
+                <Button Text="Send" Style="{StaticResource Segment}"
+                        Command="{Binding SendCommand}"
+                        IsEnabled="{Binding CanSend}"
+                        MinimumHeightRequest="44" Margin="0,4,8,4"
+                        SemanticProperties.Description="Send the typed command to the radio" />
+                <Button Text="Enable input" Style="{StaticResource Segment}"
+                        Command="{Binding ToggleInputCommand}"
+                        MinimumHeightRequest="44" Margin="0,4,8,4"
+                        SemanticProperties.Description="Arm or disarm the console command input">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding InputEnabled}" Value="True">
+                            <Setter Property="Text" Value="Disable input" />
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </FlexLayout>
+            </Border>
+
+            <!-- Export outcome (set by code-behind; view-only note). D17: ONE
+                 SLOT, TWO LABELS — the Cloning card's idiom. Where the log went
+                 reads as an ordinary caption, and only a real failure reads as
+                 an error; the code-behind shows exactly one of them. -->
+            <VerticalStackLayout Grid.Row="1">
+                <Label x:Name="ExportNotice" Style="{StaticResource Caption}"
+                       IsVisible="False" LineBreakMode="TailTruncation"
+                       SemanticProperties.Description="Export result" />
+                <Label x:Name="ExportError" Style="{StaticResource ErrorCaption}"
+                       IsVisible="False" LineBreakMode="TailTruncation"
+                       SemanticProperties.Description="Export result" />
+            </VerticalStackLayout>
+
+            <CollectionView Grid.Row="2"
+                            ItemsSource="{Binding Entries}"
+                            ItemsUpdatingScrollMode="KeepLastItemInView"
+                            SemanticProperties.Description="Serial traffic log">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ConsoleLine">
+                        <Grid ColumnDefinitions="Auto,44,*" ColumnSpacing="8" Padding="0,1">
+                            <Label Text="{Binding Timestamp}" FontFamily="Consolas" FontSize="12"
+                                   Style="{StaticResource SecondaryLabel}" VerticalOptions="Start" />
+                            <Label Grid.Column="1" Text="{Binding Badge}" FontFamily="Consolas" FontSize="12"
+                                   FontAttributes="Bold" VerticalOptions="Start"
+                                   TextColor="{AppThemeBinding Light={StaticResource SecondaryTextLight}, Dark={StaticResource SecondaryTextDark}}">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding Badge}" Value="TX">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TxBadgeLight}, Dark={StaticResource TxBadgeDark}}" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Label" Binding="{Binding Badge}" Value="RX">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Label" Binding="{Binding Badge}" Value="AUTO">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource WarnTextLight}, Dark={StaticResource WarnTextDark}}" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Label" Binding="{Binding Badge}" Value="ERR">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource ErrorTextLight}, Dark={StaticResource ErrorTextDark}}" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+                            <!-- D18(b): the line's TEXT is the selectable cell.
+                                 ConsoleLogLabel is an ordinary Label whose
+                                 handler mapping puts the native text view into
+                                 the platform's own selectable mode — and the
+                                 mapping is scoped to THIS TYPE, so no other
+                                 label in the app changes. Styling unchanged:
+                                 same Consolas/12, same wrap, same column.
+                                 The timestamp and badge cells stay plain
+                                 labels — native selection does not span two
+                                 text views anyway, and the whole formatted
+                                 line is what Copy and the exports carry. -->
+                            <ctl:ConsoleLogLabel Grid.Column="2" Text="{Binding Text}"
+                                   FontFamily="Consolas" FontSize="12"
+                                   LineBreakMode="CharacterWrap" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+        </Grid>
+    </Grid>
+</ContentPage>

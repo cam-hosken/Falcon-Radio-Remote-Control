@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    ALE settings pane (Mode settings page, Wave 2). The nine bench-confirmed
+    ALE query+set settings: six ON/OFF toggles (ALL_C, ANY_C, AMD_D, KEY_T,
+    LSTN, RAD_S) and three numeric fields (MAXCH, TIME_OU, TUNE time). LQA
+    scheduling is NOT here — it lives on the Operate ALE pane's LQA sub-tab.
+
+    Binding: the ContentView root inherits the hosting page's ModeViewModel so
+    the <parts:AleSettingsPaneView IsVisible="{Binding IsAleActive}"/> element
+    in ModeSettingsPage keeps working; the inner "Body" rebinds to
+    AleSettingsViewModel (set in code-behind — the RadioSettingsPage
+    ConsoleSection pattern). Constitution: ON/OFF highlight moves only on the
+    confirmed report (one-way); numeric ENTRIES are app-side input (two-way).
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             xmlns:parts="clr-namespace:Falcon.App.Views.SettingsParts"
+             x:Class="Falcon.App.Views.SettingsParts.AleSettingsPaneView">
+    <ScrollView x:Name="Body" x:DataType="vm:AleSettingsViewModel">
+        <VerticalStackLayout Spacing="{OnIdiom Default=12, Phone=8}">
+
+            <!-- ON/OFF toggles. T1: the card had no heading — it names what
+                 these six settings govern, how this radio behaves toward
+                 incoming and outgoing calls. -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Calling behavior" Style="{StaticResource CardHeading}" />
+
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                        <Label Grid.Column="0" VerticalOptions="Center" Text="Accept all-calls" />
+                        <Button Grid.Column="1" Text="On" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding SetAllCallCommand}" CommandParameter="ON">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding AllCall}" Value="ON">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Grid.Column="2" Text="Off" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding SetAllCallCommand}" CommandParameter="OFF">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding AllCall}" Value="OFF">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                        <Label Grid.Column="0" VerticalOptions="Center" Text="Accept any-calls" />
+                        <Button Grid.Column="1" Text="On" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding SetAnyCallCommand}" CommandParameter="ON">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding AnyCall}" Value="ON">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Grid.Column="2" Text="Off" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding SetAnyCallCommand}" CommandParameter="OFF">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding AnyCall}" Value="OFF">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                        <Label Grid.Column="0" VerticalOptions="Center" Text="Display received AMD" />
+                        <Button Grid.Column="1" Text="On" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding SetAmdDisplayCommand}" CommandParameter="ON">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding AmdDisplay}" Value="ON">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Grid.Column="2" Text="Off" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding SetAmdDisplayCommand}" CommandParameter="OFF">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding AmdDisplay}" Value="OFF">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                        <Label Grid.Column="0" VerticalOptions="Center" Text="Key to call" />
+                        <Button Grid.Column="1" Text="On" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding SetKeyToCallCommand}" CommandParameter="ON">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding KeyToCall}" Value="ON">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Grid.Column="2" Text="Off" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding SetKeyToCallCommand}" CommandParameter="OFF">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding KeyToCall}" Value="OFF">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                        <Label Grid.Column="0" VerticalOptions="Center" Text="Listen before transmit" />
+                        <Button Grid.Column="1" Text="On" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding SetListenBeforeTxCommand}" CommandParameter="ON">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding ListenBeforeTx}" Value="ON">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Grid.Column="2" Text="Off" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding SetListenBeforeTxCommand}" CommandParameter="OFF">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding ListenBeforeTx}" Value="OFF">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                        <Label Grid.Column="0" VerticalOptions="Center" Text="Radio silence" />
+                        <Button Grid.Column="1" Text="On" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding SetRadioSilenceCommand}" CommandParameter="ON">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding RadioSilence}" Value="ON">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Grid.Column="2" Text="Off" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding SetRadioSilenceCommand}" CommandParameter="OFF">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding RadioSilence}" Value="OFF">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Numeric fields — the app-wide number-entry idiom (I): name
+                 label, Option-B confirmed DISPLAY ("—" until reported, fixed
+                 width — K), then the app-side Entry + Set action. The Entry
+                 is operator input the radio never writes. -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Scan &amp; timing" Style="{StaticResource CardHeading}" />
+
+                    <Grid ColumnDefinitions="*,Auto,90,Auto" ColumnSpacing="6">
+                        <Label VerticalOptions="Center" Text="Channels to scan" />
+                        <Border Grid.Column="1" Style="{StaticResource ValueDisplay}" WidthRequest="64"
+                                SemanticProperties.Description="Channels to scan reported value">
+                            <Label Style="{StaticResource ValueDisplayText}"
+                                   Text="{Binding MaxScanChannelsText}" />
+                        </Border>
+                        <Entry Grid.Column="2" Keyboard="Numeric" Placeholder="0-100"
+                               Text="{Binding MaxChannelsInput, Mode=TwoWay}" />
+                        <Button Grid.Column="3" Text="Set" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding ApplyMaxScanChannelsCommand}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto,90,Auto" ColumnSpacing="6">
+                        <Label VerticalOptions="Center" Text="Link timeout, minutes" />
+                        <Border Grid.Column="1" Style="{StaticResource ValueDisplay}" WidthRequest="64"
+                                SemanticProperties.Description="Link timeout reported value">
+                            <Label Style="{StaticResource ValueDisplayText}"
+                                   Text="{Binding LinkTimeoutText}" />
+                        </Border>
+                        <Entry Grid.Column="2" Keyboard="Numeric" Placeholder="0-60"
+                               Text="{Binding LinkTimeoutInput, Mode=TwoWay}" />
+                        <Button Grid.Column="3" Text="Set" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding ApplyLinkTimeoutCommand}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto,90,Auto" ColumnSpacing="6">
+                        <Label VerticalOptions="Center" Text="Tune time, seconds" />
+                        <Border Grid.Column="1" Style="{StaticResource ValueDisplay}" WidthRequest="64"
+                                SemanticProperties.Description="Tune time reported value">
+                            <Label Style="{StaticResource ValueDisplayText}"
+                                   Text="{Binding TuneTimeText}" />
+                        </Border>
+                        <Entry Grid.Column="2" Keyboard="Numeric" Placeholder="1-60"
+                               Text="{Binding TuneTimeInput, Mode=TwoWay}" />
+                        <Button Grid.Column="3" Text="Set" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding ApplyTuneTimeCommand}" />
+                    </Grid>
+
+                    <Label Style="{StaticResource ErrorCaption}" Text="{Binding InputError}"
+                           IsVisible="{Binding HasInputError}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- The two X8 PROGRAMMING cards (plan-ale-programming.md §4.5),
+                 below the two settings cards. Each is self-binding: its own DI
+                 singleton VM, resolved in its own code-behind, so neither
+                 reaches the AleSettingsViewModel this pane's Body is bound to.
+                 Neither carries a Refresh button (the round-9 doctrine — every
+                 landing re-reads). -->
+            <parts:AleProgrammingView />
+            <parts:AleScanGroupsView />
+
+            <!-- ROUND 10 §6: the pane's "Refresh ALE settings" button and its
+                 RefreshSettingsCommand are DELETED. The nine settings arrive in
+                 ONE SH that the pane already sends lazily once per session, and
+                 every card below re-reads its own target on every landing —
+                 so the button answered a question nothing was still asking.
+                 Refresh survives only where a read is genuinely expensive
+                 ("Refresh channels", the DI ×100). An ABSENCE pin
+                 (AleProgrammingMarkupGuardTests) keeps the deletion deliberate;
+                 the RefreshButtonWidthGuard's anti-vacuity retargeted to the
+                 three surviving buttons in the same phase. -->
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentView>

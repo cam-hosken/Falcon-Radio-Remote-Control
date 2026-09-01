@@ -1,0 +1,1016 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    ALE pane (plan §4.4). BindingContext is inherited from the page
+    (OperateViewModel); visibility keys off the CONFIRMED mode
+    (Mode.IsAleActive) on the root ScrollView.
+
+    GUI-rejigger N1 (Wave 1, W4): Messages and LQA are FOLDED in here.
+    The MAIN tab keeps the link banner + STOP/SCAN, the station list and
+    the read-only fill strip, and gains the Messages content (AMD compose
+    with the live counter + hard cap + target picker + verified-send flow;
+    the session-scoped sent log; the Stage-9-gated Inbox placeholder) —
+    the same bindings the standalone Messages page used, reached through
+    Ale.Messages (the same singleton VM). LQA is a SUB-TAB
+    (Ale.IsLqaTabOpen — round 11 §4: the switch is view state, and the
+    landing carries the tab's ONE read, a bare EXCH): the RANK report
+    viewer + EXCH/SOU scheduling builders + the schedule MIRROR, through
+    Ale.Lqa. AMD ▸ / LQA ▸ row actions preselect on those VMs and switch
+    the in-pane view — no navigation.
+
+    Constitution: radio-backed state is one-way; compose text, pickers,
+    hh:mm fields and the tab states are APP-SIDE input/view state
+    (two-way is legal there). Stage 8: styles/colors come from the
+    App.xaml light/dark dictionary — no pane-local palette.
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             x:Class="Falcon.App.Views.OperateParts.AlePaneView"
+             x:DataType="vm:OperateViewModel">
+
+    <ScrollView IsVisible="{Binding Mode.IsAleActive}">
+        <VerticalStackLayout Spacing="{OnIdiom Default=10, Phone=8}">
+
+            <!-- ==== Sub-tab strip (view state; sends nothing) — full-width
+                 (J1): the two buttons split the screen. T3: this is a
+                 PANE-level strip, so it sits ABOVE the frames it switches,
+                 FRAMELESS — it reads as navigation, not as a section. (Only
+                 CARD-level strips, like Messages' Inbox|Compose, live inside
+                 a card.) ==== -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                <Button Text="ALE" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                        Command="{Binding Ale.OpenMainTabCommand}"
+                        SemanticProperties.Description="Main ALE tab (link, stations, messages)">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding Ale.IsLqaTabOpen}" Value="False">
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Grid.Column="1" Text="LQA" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                        Command="{Binding Ale.OpenLqaTabCommand}"
+                        SemanticProperties.Description="LQA sub-tab (report viewer and scheduling)">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding Ale.IsLqaTabOpen}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </Grid>
+
+            <!-- ==================== MAIN tab ==================== -->
+            <!-- Link banner + STOP/SCAN, flat station list with per-row
+                 actions, the READ-ONLY fill strip, and the folded Messages
+                 content. NO fill editing anywhere (the station list is
+                 display + actions only); the app never auto-sends SCA or
+                 ST on mode entry — the radio manages its own scan. Banner
+                 and every displayed value follow only the radio's
+                 announced lines ("—" until reported). -->
+            <VerticalStackLayout Spacing="{OnIdiom Default=10, Phone=8}" IsVisible="True">
+                <VerticalStackLayout.Triggers>
+                    <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding Ale.IsLqaTabOpen}" Value="True">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                </VerticalStackLayout.Triggers>
+
+            <!-- ==== Link banner card ==== -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <!-- The operator's primary situational fact:
+                             Scanning / Stopped / Calling addr ch nn /
+                             Linked / Sending, and (round 15 item I) the LQA
+                             lifecycle — Sounding self ch nn / Exchange ind
+                             ch nn / the kind-unknown "LQA IN PROGRESS" the
+                             SH block's LQA/SOUND line reports — "—" until
+                             reported. -->
+                        <Border Style="{StaticResource Chip}"
+                                SemanticProperties.Description="ALE link state banner">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding Ale.IsScanning}" Value="True">
+                                    <!-- Owner 2026-08-24: scanning wears the standard accent blue. -->
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Border" Binding="{Binding Ale.IsCalling}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource ChipWarnColor}" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Border" Binding="{Binding Ale.IsSending}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource ChipWarnColor}" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Border" Binding="{Binding Ale.IsLinked}" Value="True">
+                                    <!-- Owner 2026-08-24: an established link is the good state - green. -->
+                                    <Setter Property="BackgroundColor" Value="{StaticResource ChipOkColor}" />
+                                </DataTrigger>
+                                <!-- An LQA is a transmission, so it wears the
+                                     same warn fill Calling/Sending do. -->
+                                <DataTrigger TargetType="Border" Binding="{Binding Ale.IsLqa}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource ChipWarnColor}" />
+                                </DataTrigger>
+                                <!-- The inbound handshake (SIGNAL RECEIVED /
+                                     RECEIVING CALL — field capture
+                                     2026-08-24): activity detected is GOOD
+                                     news, so it wears the ok green, like the
+                                     link it usually becomes (owner ruling). -->
+                                <DataTrigger TargetType="Border" Binding="{Binding Ale.IsIncomingCall}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource ChipOkColor}" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <HorizontalStackLayout Spacing="8">
+                                <ActivityIndicator IsRunning="{Binding Ale.IsCalling}"
+                                                   IsVisible="{Binding Ale.IsCalling}"
+                                                   WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                                <Label Text="{Binding Ale.BannerText}" FontSize="18" FontAttributes="Bold"
+                                       FontFamily="Consolas" VerticalOptions="Center"
+                                       LineBreakMode="TailTruncation">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding Ale.IsScanning}" Value="True">
+                                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                        </DataTrigger>
+                                        <DataTrigger TargetType="Label" Binding="{Binding Ale.IsCalling}" Value="True">
+                                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                        </DataTrigger>
+                                        <DataTrigger TargetType="Label" Binding="{Binding Ale.IsSending}" Value="True">
+                                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                        </DataTrigger>
+                                        <DataTrigger TargetType="Label" Binding="{Binding Ale.IsLinked}" Value="True">
+                                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                        </DataTrigger>
+                                        <!-- The PAIR: every filled state needs
+                                             its on-accent text or the chip
+                                             renders unreadable (App.xaml's
+                                             rule). -->
+                                        <DataTrigger TargetType="Label" Binding="{Binding Ale.IsLqa}" Value="True">
+                                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                        </DataTrigger>
+                                        <DataTrigger TargetType="Label" Binding="{Binding Ale.IsIncomingCall}" Value="True">
+                                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                        </DataTrigger>
+                                        <!-- The PAIR: every filled state needs
+                                             its on-accent text or the chip
+                                             renders unreadable (App.xaml's
+                                             rule). -->
+                                    </Label.Triggers>
+                                </Label>
+                            </HorizontalStackLayout>
+                        </Border>
+                        <!-- STOP doubles as Disconnect during Calling/
+                             Linked/Sending (ST also terminates calls —
+                             the banner makes the effect visible). -->
+                        <Button Grid.Column="1" Text="{Binding Ale.StopButtonText}" Style="{StaticResource Segment}"
+                                Command="{Binding Ale.StopCommand}"
+                                SemanticProperties.Description="Stop scan; disconnects during a call or link; aborts an LQA" />
+                        <Button Grid.Column="2" Text="SCAN" Style="{StaticResource Segment}"
+                                Command="{Binding Ale.ScanCommand}"
+                                SemanticProperties.Description="Start scanning" />
+                    </Grid>
+
+                    <!-- Round 8 (ED, owner): the modem row — the SSB Operate
+                         card's picker wheel, bound to the same cross-mode
+                         ModemViewModel. Engagement from an ALE> prompt is
+                         bench-confirmed (probe R8; the radio also resumes
+                         SCANNING, which the banner reports on its own
+                         announced line). -->
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Modem" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                            <Button Text="◀" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding Modem.ModemDownCommand}"
+                                    SemanticProperties.Description="Previous modem preset" />
+                            <Border Style="{StaticResource ValueDisplay}" WidthRequest="96"
+                                    SemanticProperties.Description="Active modem preset">
+                                <Label Style="{StaticResource ValueDisplayText}"
+                                       Text="{Binding Modem.ModemDisplayText}" />
+                            </Border>
+                            <Button Text="▶" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding Modem.ModemUpCommand}"
+                                    SemanticProperties.Description="Next modem preset" />
+                        </HorizontalStackLayout>
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== Selfs card (READ-ONLY — round 10 §4) ====
+                 The old one-line fill strip ("Self: ZZZ (grp 0), TST (grp 1)")
+                 became a real TABLE and moved ABOVE the stations: the selfs are
+                 what the stations are called FROM, so they read first. The fill
+                 chip keeps its place on the heading row — it is the same card's
+                 status, and it is still the only thing on this pane that says
+                 whether SCAN is allowed. Still read-only: address EDITING lives
+                 on the ALE settings pane's programming cards.
+                 Column contract (§4, decided literally): "*,64" at spacing 8 —
+                 the name takes the slack, the chan-grp column is the fixed 64
+                 the stations table uses, so the two tables' right edges line up.
+                 Cells are the §4 ALE-ROW IDIOM (Consolas/Bold/16), which the
+                 §3 ledger records as an exemption from the promoted styles. -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Label Text="Self addresses" Style="{StaticResource CardHeading}" VerticalOptions="Center" />
+                        <Border Grid.Column="1" Style="{StaticResource Chip}"
+                                VerticalOptions="Center"
+                                SemanticProperties.Description="ALE fill state (read-only)">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding Ale.IsFillComplete}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource ChipOkColor}" />
+                                </DataTrigger>
+                            </Border.Triggers>
+                            <!-- §4: "FillStateText/chip unchanged" — the chip is
+                                 NOT on §3's StatusText manifest, and invariant 3
+                                 says a matching-but-unlisted control stays as it
+                                 is. Only its CONTAINER moved (into the card's
+                                 heading row). -->
+                            <Label Text="{Binding Ale.FillStateText, StringFormat='Fill: {0}'}"
+                                   FontAttributes="Bold" VerticalOptions="Center">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding Ale.IsFillComplete}" Value="True">
+                                        <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+                        </Border>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,64" ColumnSpacing="8" Padding="4,0">
+                        <Label Text="Self" Style="{StaticResource CellHeading}" />
+                        <Label Grid.Column="1" Text="Chan grp" Style="{StaticResource CellHeading}" />
+                    </Grid>
+
+                    <VerticalStackLayout Spacing="2"
+                                         BindableLayout.ItemsSource="{Binding Ale.SelfRows}"
+                                         SemanticProperties.Description="ALE self addresses">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AleSelfRowViewModel">
+                                <Grid ColumnDefinitions="*,64" ColumnSpacing="8" Padding="4,2">
+                                    <Label Text="{Binding Address}" FontFamily="Consolas"
+                                           FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                                    <Label Grid.Column="1" Text="{Binding GroupText}" FontFamily="Consolas"
+                                           FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                        <BindableLayout.EmptyView>
+                            <Label Text="No self addresses reported yet." Style="{StaticResource Caption}" Padding="4" />
+                        </BindableLayout.EmptyView>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== Nets and Stations cards (read-only + actions) ====
+                 ROUND 15 §17 (owner 2026-08-22): ONE card became TWO. The nets
+                 read FIRST — a net is the thing an operator calls when they do
+                 not want one station — and each card heads itself, which is
+                 what let the Type column go: the CARD says which kind a row is,
+                 so the cell that repeated it was noise. Chan grp went with it
+                 (it is the address book's fact, and it is on that pane); the
+                 column the two of them vacated is the ASSOCIATED SELF, which
+                 this pane could never show before and which is what tells the
+                 operator which self a call will go out FROM.
+
+                 Column contract (§17, decided literally): "*,96,72,72,72" at
+                 spacing 8 — Name (star) · Assoc self (96) · LQA ▸ · AMD ▸ ·
+                 CALL. Phone budget: 448 − (96 + 3×72 + 4×8) = 104 dp for the
+                 name, ≈ 11 Consolas-16 characters — MORE than the 84 the six-
+                 column row left (round 13 §4 A3), which is why the deletion
+                 pays for the wider cell. The literals are literal because a
+                 StaticResource reference cannot live inside a
+                 GridLengthCollection string; StyleVocabularyGuardTests
+                 cross-pins SegmentWidth == 72 and ValueWidthWide == 96 so
+                 neither can drift from its key. The header MIRRORS the field
+                 columns (the action columns stay unheaded — the button texts
+                 name themselves).
+
+                 NO Refresh button (§17 G-D1, owner): every app-side write
+                 already closes with the bulk book re-read into the ONE mirror
+                 both cards render from, so the lists follow by construction;
+                 off-app edits are the reconnect's business.
+
+                 A station longer than the residual WRAPS inside its own cell
+                 rather than clipping or re-splitting the row: CharacterWrap,
+                 not word wrap, because ALE addresses are contiguous tokens
+                 with nothing to break on. Two lines max, vertically centred,
+                 so a wrapped row stays aligned with its neighbours. -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Nets" Style="{StaticResource CardHeading}" />
+
+                    <!-- The ONE header (round 13 §4 A3 — no idiom gate), on the
+                         round-15 §17 columns. -->
+                    <Grid ColumnDefinitions="*,96,72,72,72" ColumnSpacing="8" Padding="4,0">
+                        <Label Text="Nets" Style="{StaticResource CellHeading}" />
+                        <Label Grid.Column="1" Text="Assoc self" Style="{StaticResource CellHeading}" />
+                    </Grid>
+
+                    <VerticalStackLayout Spacing="2"
+                                         BindableLayout.ItemsSource="{Binding Ale.NetRows}"
+                                         SemanticProperties.Description="ALE net list">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AleStationRowViewModel">
+                                <VerticalStackLayout Spacing="2" Padding="4,2">
+
+                                    <!-- THE row. Name | Assoc self | LQA ▸ |
+                                         AMD ▸ | CALL, the buttons FILLING their
+                                         fixed columns so the action block is a
+                                         rectangle no matter which buttons a row
+                                         offers. -->
+                                    <Grid ColumnDefinitions="*,96,72,72,72" ColumnSpacing="8">
+                                        <!-- The station name owns the residual star
+                                             column. Too long for it → WRAP inside the
+                                             cell (CharacterWrap: an ALE address is one
+                                             contiguous token, so word wrap has nothing
+                                             to break on), two lines, centred against
+                                             its single-line neighbours. -->
+                                        <Label Text="{Binding Address}" FontFamily="Consolas"
+                                               FontAttributes="Bold" FontSize="16" VerticalOptions="Center"
+                                               LineBreakMode="CharacterWrap" MaxLines="2" />
+                                        <!-- The associated self, or "—" when the
+                                             radio reports none (the primary-deletion
+                                             artifact — a real state, not a blank). -->
+                                        <Label Grid.Column="1" Text="{Binding AssociatedSelfText}" FontFamily="Consolas"
+                                               FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                                        <!-- LQA only on individuals (RAN's own
+                                             restriction). On a NET row the cell
+                                             is EMPTY and its fixed 72 dp column
+                                             PERSISTS — the columns are literal
+                                             widths, not Auto, so AMD/CALL never
+                                             slide left on a net. -->
+                                        <Button Grid.Column="2" Text="LQA ▸" Style="{StaticResource Segment}"
+                                                HorizontalOptions="Fill"
+                                                Command="{Binding LqaCommand}" IsEnabled="{Binding CanLqa}"
+                                                IsVisible="{Binding CanLqa}"
+                                                SemanticProperties.Description="View LQA scores for this individual" />
+                                        <Button Grid.Column="3" Text="AMD ▸" Style="{StaticResource Segment}"
+                                                HorizontalOptions="Fill"
+                                                Command="{Binding AmdCommand}" IsEnabled="{Binding CanAmd}"
+                                                SemanticProperties.Description="Compose an AMD message to this station" />
+                                        <Button Grid.Column="4" Text="CALL" Style="{StaticResource Segment}"
+                                                HorizontalOptions="Fill"
+                                                Command="{Binding CallCommand}" IsEnabled="{Binding CanCall}"
+                                                SemanticProperties.Description="Call this station (transmits)" />
+                                    </Grid>
+
+                                </VerticalStackLayout>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                        <BindableLayout.EmptyView>
+                            <Label Text="No nets reported yet." Style="{StaticResource Caption}" Padding="4" />
+                        </BindableLayout.EmptyView>
+                    </VerticalStackLayout>
+
+                    <!-- ==== The PINNED broadcast rows (broadcast round F3,
+                         plan-ale-broadcast-round.md §2; OWNER RULING 1) ====
+
+                         ANY and ALL are not book records — the radio never
+                         lists them — so they are FIXED grids OUTSIDE the
+                         BindableLayout and after its EmptyView. That placement
+                         is the whole point: they render whether or not the
+                         radio has reported a single net, which a template row
+                         could never do. They ride the card's own
+                         "*,96,72,72,72" columns so they read as part of the
+                         table, and invariant 2's furniture marks keep them from
+                         reading as records: fixed position, a "—" associated
+                         self (the wire takes no self argument — owner ruling
+                         2), and the caption beneath.
+
+                         The LQA column (2) is empty on a station row here — RAN
+                         is individuals-only — so the pickers take that slot
+                         (owner ruling 3). ANY's lists CHANNELS ONLY and is
+                         REQUIRED: the radio answers a bare `CAL ANY` with
+                         ` NO CHANS IN GRP ` and transmits nothing (probe P20),
+                         so CALL stays withheld until one is picked. ALL's lists
+                         "Auto" FIRST — the bare `CAL ALL`, which the radio
+                         answers by choosing its own channel and AUTO-LINKING
+                         (P20). Both lists hold ONLY channels the radio reported
+                         in its CHG groups (owner ruling 4): an unread mirror
+                         yields an EMPTY picker, which is mirror-honest.
+
+                         The 72-dp picker width ships as measured for the action
+                         columns; whether a two-digit value clips on device is a
+                         bench OBSERVATION item (plan §2, critic F11), not a
+                         phase gate. -->
+                    <Grid ColumnDefinitions="*,96,72,72,72" ColumnSpacing="8" Padding="4,2">
+                        <Label Text="ANY" FontFamily="Consolas"
+                               FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="—" FontFamily="Consolas"
+                               FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                        <Picker Grid.Column="2" HorizontalOptions="Fill" MinimumHeightRequest="44"
+                                ItemsSource="{Binding Ale.AnyChannelChoices}"
+                                SelectedItem="{Binding Ale.SelectedAnyChannel, Mode=TwoWay}"
+                                SemanticProperties.Description="Channel for the ANY broadcast (required)" />
+                        <Button Grid.Column="3" Text="AMD ▸" Style="{StaticResource Segment}"
+                                HorizontalOptions="Fill"
+                                Command="{Binding Ale.AmdAnyCommand}"
+                                SemanticProperties.Description="Compose an AMD message to ANY station" />
+                        <Button Grid.Column="4" Text="CALL" Style="{StaticResource Segment}"
+                                HorizontalOptions="Fill"
+                                Command="{Binding Ale.CallAnyCommand}"
+                                SemanticProperties.Description="Call ANY station on the picked channel (transmits)" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,96,72,72,72" ColumnSpacing="8" Padding="4,2">
+                        <Label Text="ALL" FontFamily="Consolas"
+                               FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="—" FontFamily="Consolas"
+                               FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                        <Picker Grid.Column="2" HorizontalOptions="Fill" MinimumHeightRequest="44"
+                                ItemsSource="{Binding Ale.AllChannelChoices}"
+                                SelectedItem="{Binding Ale.SelectedAllChannel, Mode=TwoWay}"
+                                SemanticProperties.Description="Channel for the ALL broadcast (Auto lets the radio pick)" />
+                        <Button Grid.Column="3" Text="AMD ▸" Style="{StaticResource Segment}"
+                                HorizontalOptions="Fill"
+                                Command="{Binding Ale.AmdAllCommand}"
+                                SemanticProperties.Description="Compose an AMD message to ALL stations" />
+                        <Button Grid.Column="4" Text="CALL" Style="{StaticResource Segment}"
+                                HorizontalOptions="Fill"
+                                Command="{Binding Ale.CallAllCommand}"
+                                SemanticProperties.Description="Call ALL stations (transmits; the radio links)" />
+                    </Grid>
+
+                    <!-- The rows' REASON line: what a broadcast reaches, and
+                         the one gate the operator has to clear. -->
+                    <Label Text="Broadcast — every scanning station. ANY needs a channel."
+                           Style="{StaticResource Caption}" Padding="4,0" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Stations" Style="{StaticResource CardHeading}" />
+
+                    <!-- The ONE header (round 13 §4 A3 — no idiom gate), on the
+                         round-15 §17 columns. -->
+                    <Grid ColumnDefinitions="*,96,72,72,72" ColumnSpacing="8" Padding="4,0">
+                        <Label Text="Stations" Style="{StaticResource CellHeading}" />
+                        <Label Grid.Column="1" Text="Assoc self" Style="{StaticResource CellHeading}" />
+                    </Grid>
+
+                    <VerticalStackLayout Spacing="2"
+                                         BindableLayout.ItemsSource="{Binding Ale.StationRows}"
+                                         SemanticProperties.Description="ALE station list">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AleStationRowViewModel">
+                                <VerticalStackLayout Spacing="2" Padding="4,2">
+
+                                    <!-- THE row. Name | Assoc self | LQA ▸ |
+                                         AMD ▸ | CALL, the buttons FILLING their
+                                         fixed columns so the action block is a
+                                         rectangle no matter which buttons a row
+                                         offers. -->
+                                    <Grid ColumnDefinitions="*,96,72,72,72" ColumnSpacing="8">
+                                        <!-- The station name owns the residual star
+                                             column. Too long for it → WRAP inside the
+                                             cell (CharacterWrap: an ALE address is one
+                                             contiguous token, so word wrap has nothing
+                                             to break on), two lines, centred against
+                                             its single-line neighbours. -->
+                                        <Label Text="{Binding Address}" FontFamily="Consolas"
+                                               FontAttributes="Bold" FontSize="16" VerticalOptions="Center"
+                                               LineBreakMode="CharacterWrap" MaxLines="2" />
+                                        <!-- The associated self, or "—" when the
+                                             radio reports none (the primary-deletion
+                                             artifact — a real state, not a blank). -->
+                                        <Label Grid.Column="1" Text="{Binding AssociatedSelfText}" FontFamily="Consolas"
+                                               FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                                        <!-- LQA only on individuals (RAN's own
+                                             restriction). On a NET row the cell
+                                             is EMPTY and its fixed 72 dp column
+                                             PERSISTS — the columns are literal
+                                             widths, not Auto, so AMD/CALL never
+                                             slide left on a net. -->
+                                        <Button Grid.Column="2" Text="LQA ▸" Style="{StaticResource Segment}"
+                                                HorizontalOptions="Fill"
+                                                Command="{Binding LqaCommand}" IsEnabled="{Binding CanLqa}"
+                                                IsVisible="{Binding CanLqa}"
+                                                SemanticProperties.Description="View LQA scores for this individual" />
+                                        <Button Grid.Column="3" Text="AMD ▸" Style="{StaticResource Segment}"
+                                                HorizontalOptions="Fill"
+                                                Command="{Binding AmdCommand}" IsEnabled="{Binding CanAmd}"
+                                                SemanticProperties.Description="Compose an AMD message to this station" />
+                                        <Button Grid.Column="4" Text="CALL" Style="{StaticResource Segment}"
+                                                HorizontalOptions="Fill"
+                                                Command="{Binding CallCommand}" IsEnabled="{Binding CanCall}"
+                                                SemanticProperties.Description="Call this station (transmits)" />
+                                    </Grid>
+
+                                </VerticalStackLayout>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                        <BindableLayout.EmptyView>
+                            <Label Text="No stations reported yet." Style="{StaticResource Caption}" Padding="4" />
+                        </BindableLayout.EmptyView>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== Messages card (folded — plan §4.5, Stage 6): AMD
+                 compose ≤90 chars with a live counter → target from the
+                 flat station list (individuals + nets; selfs excluded) →
+                 Send via the app's designated scratch slot (TXMSG 9 write
+                 → read-back verify → SE 9 — Core enforces "never sent
+                 unverified"; the sent log surfaces the outcome). The
+                 radio's stored slots get NO UI (owner decision
+                 2026-08-02). The Inbox tab is a labeled placeholder GATED
+                 to Stage 9 (two-station session pins the RXMSG payload
+                 format). ==== -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+
+                    <!-- U1: the card heading names the section; the
+                         Inbox|Compose strip beneath it is a CARD-level strip,
+                         so it lives INSIDE this card (T3) and takes the WHOLE
+                         width. Inbox is on the LEFT and is the DEFAULT view
+                         (MessagesViewModel.IsInboxOpen starts true) — its
+                         content is still the Stage-9 placeholder. -->
+                    <Label Text="AMD" Style="{StaticResource CardHeading}" />
+
+                    <!-- Tabs (view state; sends nothing) -->
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                        <Button Text="Inbox" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                                Command="{Binding Ale.Messages.OpenInboxCommand}"
+                                SemanticProperties.Description="Inbox tab (gated to Stage 9)">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ale.Messages.IsInboxOpen}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Grid.Column="1" Text="Compose" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                                Command="{Binding Ale.Messages.OpenComposeCommand}"
+                                SemanticProperties.Description="Compose tab">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ale.Messages.IsInboxOpen}" Value="False">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </Grid>
+
+                    <!-- ==================== Compose tab ==================== -->
+                    <VerticalStackLayout Spacing="10" IsVisible="True">
+                        <VerticalStackLayout.Triggers>
+                            <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding Ale.Messages.IsInboxOpen}" Value="True">
+                                <Setter Property="IsVisible" Value="False" />
+                            </DataTrigger>
+                        </VerticalStackLayout.Triggers>
+
+                        <!-- U2: the target picker sits ABOVE the message; the
+                             strip already names this view, so it carries no
+                             heading of its own (T1). -->
+                        <HorizontalStackLayout Spacing="8">
+                            <Label Text="To:" VerticalOptions="Center" />
+                            <Picker ItemsSource="{Binding Ale.Messages.Targets}"
+                                    SelectedItem="{Binding Ale.Messages.SelectedTarget, Mode=TwoWay}"
+                                    ItemDisplayBinding="{Binding Display, x:DataType=vm:AleTargetChoice}"
+                                    WidthRequest="220" MinimumHeightRequest="44"
+                                    SemanticProperties.Description="Target station (individuals and nets)" />
+                        </HorizontalStackLayout>
+
+                        <!-- BROADCAST ROUND F4 (plan §2, owner ruling 3): the
+                             channel picker, beneath To and on the SAME widths,
+                             shown only when the target is one of the two pinned
+                             broadcast entries. A book send takes no channel
+                             argument, so on a book target the row is not there
+                             at all rather than there-and-inert. ANY starts
+                             UNPICKED (required — Send names the reason); ALL
+                             starts on "Auto", the bare form. -->
+                        <HorizontalStackLayout Spacing="8"
+                                               IsVisible="{Binding Ale.Messages.IsChannelPickerVisible}">
+                            <Label Text="Channel:" VerticalOptions="Center" />
+                            <Picker ItemsSource="{Binding Ale.Messages.ComposeChannelChoices}"
+                                    SelectedItem="{Binding Ale.Messages.SelectedComposeChannel, Mode=TwoWay}"
+                                    WidthRequest="220" MinimumHeightRequest="44"
+                                    SemanticProperties.Description="Broadcast channel" />
+                        </HorizontalStackLayout>
+
+                        <!-- Two-way is legal: ComposeText is APP-SIDE input state.
+                             MaxLength mirrors the VM's hard 90 cap.
+                             U3: a FIXED height, AutoSize Disabled — the field
+                             never grows or shrinks on its content.
+
+                             ROUND 11 §4, LAYOUT-PROVISIONAL (plan invariant 7):
+                             72, re-measured, replacing an unmeasured 96. The
+                             Editor carries no font of its own and App.xaml sets
+                             no implicit Editor style, so it renders at the
+                             platform default (Segoe UI 14 on Windows). MEASURED
+                             (System.Drawing text metrics, 96 dpi, ClearType,
+                             2026-08-17) against the NARROWEST presentation —
+                             the 336 dp phone card content less the WinUI
+                             TextBox chrome = 318 dp of text: one line 20.37 dp,
+                             each further line +18.62. Ninety characters of real
+                             operator text wrap to THREE lines = 57.61 dp; plus
+                             the TextBox's own vertical chrome (padding 5+6,
+                             border 1+1) = 70.6 -> 72.
+                             RECORDED LIMIT: a 90-character message built
+                             entirely from the widest glyphs (all W or all M)
+                             wraps to a FOURTH line and scrolls; guaranteeing
+                             that case measures 90 dp, which is neither snug nor
+                             inside the §4 expectation. Any MEASURED overflow
+                             moves this literal and its pin in the same commit. -->
+                        <Editor Text="{Binding Ale.Messages.ComposeText, Mode=TwoWay}" MaxLength="90"
+                                HeightRequest="72" AutoSize="Disabled"
+                                Placeholder="Message text (1–90 characters)"
+                                SemanticProperties.Description="AMD message text" />
+
+                        <!-- U2: Send sits BELOW the message, right-aligned;
+                             the live counter shares its row. -->
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Text="{Binding Ale.Messages.CounterText}" Style="{StaticResource Caption}"
+                                   HorizontalOptions="End" VerticalOptions="Center"
+                                   SemanticProperties.Description="Character counter" />
+                            <Button Grid.Column="1" Text="Send" Style="{StaticResource Segment}"
+                                    WidthRequest="{StaticResource SegmentWidth}"
+                                    Command="{Binding Ale.Messages.SendCommand}"
+                                    SemanticProperties.Description="Send the message (writes scratch slot 9, verifies, then transmits)" />
+                        </Grid>
+
+                        <BoxView HeightRequest="1" Color="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+
+                        <Label Text="Sent this session" Style="{StaticResource SubHeading}" />
+                        <VerticalStackLayout Spacing="2"
+                                             BindableLayout.ItemsSource="{Binding Ale.Messages.SentRows}"
+                                             SemanticProperties.Description="Sent message log">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SentMessageRowViewModel">
+                                    <!-- The STATUS column is GONE (owner 2026-08-24): time,
+                                         target, text — the row is the record, and a
+                                         FAILED send still surfaces through the error
+                                         toast (Core raises it; the VM's StatusText
+                                         stays for that path and its pins). -->
+                                    <Grid ColumnDefinitions="70,130,*" ColumnSpacing="8" Padding="4,2">
+                                        <Label Text="{Binding TimeText}" FontFamily="Consolas" FontSize="12"
+                                               Style="{StaticResource SecondaryLabel}" VerticalOptions="Center" />
+                                        <Label Grid.Column="1" Text="{Binding Target}" FontFamily="Consolas"
+                                               FontSize="12" VerticalOptions="Center" />
+                                        <Label Grid.Column="2" Text="{Binding Text}" FontFamily="Consolas"
+                                               FontSize="12" LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                            <BindableLayout.EmptyView>
+                                <Label Text="Nothing sent this session." Style="{StaticResource Caption}" Padding="4" />
+                            </BindableLayout.EmptyView>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+
+                    <!-- ==================== Inbox tab ==================== -->
+                    <!-- STAGE 9 CLOSED 2026-08-24 (the first two-station
+                         session): received AMDs render from the RXMSG mirror —
+                         async arrivals are the CAPTURED shape; the Refresh's
+                         bare-RXMSG listing and the per-row RXMSG DEL are
+                         PROVISIONAL (HELP PROG; TXMSG-family precedent). One
+                         landing read per session fires when ALE is ready with
+                         this tab open. -->
+                    <VerticalStackLayout Spacing="8" IsVisible="{Binding Ale.Messages.IsInboxOpen}">
+                        <VerticalStackLayout Spacing="2"
+                                             BindableLayout.ItemsSource="{Binding Ale.Messages.InboxRows}"
+                                             SemanticProperties.Description="Received AMD messages (radio mirror)">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:RxMessageRowViewModel">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="4,2">
+                                        <VerticalStackLayout Spacing="2">
+                                            <HorizontalStackLayout Spacing="8">
+                                                <Label Text="{Binding From}" FontFamily="Consolas"
+                                                       FontAttributes="Bold" FontSize="16" />
+                                                <Label Text="{Binding WhenText}" Style="{StaticResource Caption}"
+                                                       VerticalOptions="Center" />
+                                            </HorizontalStackLayout>
+                                            <Label Text="{Binding Text}" FontFamily="Consolas" FontSize="16"
+                                                   LineBreakMode="WordWrap" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="1" Text="Delete" Style="{StaticResource Segment}"
+                                                VerticalOptions="Start"
+                                                Command="{Binding DeleteCommand}"
+                                                SemanticProperties.Description="Delete this received message from the radio" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                            <BindableLayout.EmptyView>
+                                <Label Text="No messages received." Style="{StaticResource Caption}" Padding="4" />
+                            </BindableLayout.EmptyView>
+                        </VerticalStackLayout>
+                        <Button Text="Refresh Inbox" Style="{StaticResource Segment}"
+                                HorizontalOptions="End"
+                                Command="{Binding Ale.Messages.RefreshInboxCommand}"
+                                SemanticProperties.Description="Re-read the radio's received message store" />
+                    </VerticalStackLayout>
+
+                </VerticalStackLayout>
+            </Border>
+
+            </VerticalStackLayout>
+
+            <!-- ==================== LQA sub-tab ==================== -->
+            <!-- Folded LQA content (plan §4.5, Stage 6). Top: RANK report
+                 viewer — RAN per INDIVIDUAL (passive read of stored
+                 scores; does NOT transmit), table of CHAN/SCORE/SNR rows
+                 verbatim (dash scores are a real outcome), each row
+                 carrying its channel's stored RX/TX. Bottom:
+                 scheduling — the EXCH and SOU builders over the queue the
+                 radio itself reports: Now sends the bare immediate form,
+                 Schedule the interval one, and each queued row carries its
+                 own Delete.
+                 ROUND 11 §4: "the radio has no schedule query" was
+                 RETRACTED (2026-08-16) — bare EXCH (≡ bare SOU) lists every
+                 sounding and exchange with its interval and start, and
+                 EXCH|SOU STO <addr> deletes one. The session CARDS are gone;
+                 what shows here is the radio's own queue. -->
+            <Border Style="{StaticResource Card}" IsVisible="{Binding Ale.IsLqaTabOpen}">
+                <VerticalStackLayout Spacing="10">
+
+                    <!-- ==================== RANK report viewer ==================== -->
+                    <Label Text="Scores" Style="{StaticResource CardHeading}" />
+                    <HorizontalStackLayout Spacing="8">
+                        <Label Text="Individual:" VerticalOptions="Center" />
+                        <Picker ItemsSource="{Binding Ale.Lqa.RankChoices}"
+                                SelectedItem="{Binding Ale.Lqa.SelectedRankStation, Mode=TwoWay}"
+                                ItemDisplayBinding="{Binding Display, x:DataType=vm:AleTargetChoice}"
+                                WidthRequest="200" MinimumHeightRequest="44"
+                                SemanticProperties.Description="Individual station for the LQA report" />
+                        <Button Text="Request report" Style="{StaticResource Segment}"
+                                Command="{Binding Ale.Lqa.RequestReportCommand}"
+                                SemanticProperties.Description="Read the stored LQA scores (RAN)" />
+                    </HorizontalStackLayout>
+                    <!-- Round 11 §4: the report table is SIX columns now
+                         (CHAN | RX | TX | SCORE | MEAS SNR | RCVD SNR), which
+                         ONE line per channel since 2026-08-24 (owner ask):
+                         the RX/TX pair STACKS inside one cell, so the row is
+                         CHAN | RX/TX | SCORE | MEAS | RCVD on the literal
+                         56,96,64,88,88 columns — 424 ≤ the 448 phone budget,
+                         the §4 arithmetic pinned in AlePaneMarkupGuardTests.
+                         ONE header line mirrors it.
+                         RX/TX come from the KEYED channel mirror, filled by
+                         one targeted `DI n n` per named channel per session
+                         (owner ruling R5); each cell reads "—" until that
+                         answer lands.
+                         There is NO EmptyView: the table binds
+                         ReportDisplayRows, which is the real rows or EXACTLY
+                         ONE all-hyphen placeholder row — "no report yet" and
+                         "the report was empty" render identically (decided),
+                         and neither is allowed to look like a broken table. -->
+                    <!-- ONE line now (owner 2026-08-24): the RX/TX freqs
+                         STACK inside one cell under a single RX/TX header, so
+                         a row is one unit. 56+96+64+88+88 + 4×8 = 424 ≤ the
+                         448 phone content budget. -->
+                    <Grid ColumnDefinitions="56,96,64,88,88" ColumnSpacing="8" Padding="6,0">
+                        <Label Text="CHAN" Style="{StaticResource Caption}" />
+                        <Label Grid.Column="1" Text="RX/TX" Style="{StaticResource Caption}" />
+                        <Label Grid.Column="2" Text="SCORE" Style="{StaticResource Caption}" />
+                        <Label Grid.Column="3" Text="MEAS SNR" Style="{StaticResource Caption}" />
+                        <Label Grid.Column="4" Text="RCVD SNR" Style="{StaticResource Caption}" />
+                    </Grid>
+                    <VerticalStackLayout Spacing="1"
+                                         BindableLayout.ItemsSource="{Binding Ale.Lqa.ReportDisplayRows}"
+                                         SemanticProperties.Description="LQA score table">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LqaReportRowViewModel">
+                                <Grid ColumnDefinitions="56,96,64,88,88" ColumnSpacing="8" Padding="6,2">
+                                    <Label Text="{Binding Channel}" FontFamily="Consolas"
+                                           FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                                    <!-- The stacked RX-over-TX pair — one cell,
+                                         both freqs, the single RX/TX header. -->
+                                    <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                                        <Label Text="{Binding RxText}" FontFamily="Consolas"
+                                               FontAttributes="Bold" FontSize="16" />
+                                        <Label Text="{Binding TxText}" FontFamily="Consolas"
+                                               FontAttributes="Bold" FontSize="16" />
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="2" Text="{Binding Score}" FontFamily="Consolas"
+                                           FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                                    <Label Grid.Column="3" Text="{Binding MeasuredSnr}" FontFamily="Consolas"
+                                           FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                                    <Label Grid.Column="4" Text="{Binding ReceivedSnr}" FontFamily="Consolas"
+                                           FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== Scheduling card (owner 2026-08-25: its OWN frame — the
+                 scores and the scheduling stopped sharing a card) ==== -->
+            <Border Style="{StaticResource Card}" IsVisible="{Binding Ale.IsLqaTabOpen}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Scheduling" Style="{StaticResource CardHeading}" />
+
+                    <!-- The radio's own capacity, read from the MIRROR (never
+                         from a display projection): at ten rows both STA
+                         buttons are dead and this line says why. -->
+                    <Label Text="{Binding Ale.Lqa.QueueFullReason}" Style="{StaticResource ErrorCaption}" />
+
+                    <!-- EXCH: LQA exchange with a station (it TRANSMITS — Now at
+                         once, Schedule on its interval). Round 11 §4: the
+                         builder is TWO LINES — it cannot fit one inside the
+                         fixed window (line 2 is the two 80-dp entries, the spacer, and the two
+                         Segment buttons - the phone content budget spent). The two side labels
+                         "interval"/"start" are GONE (what bought the room);
+                         owner 2026-08-24: the WORDS ride a caption header row
+                         over the two entries instead, and the placeholders
+                         keep only the hh:mm format hint.
+                         ROUND 15 §16 F-2/F-3/F-4: the five columns and their
+                         widths are UNCHANGED; what changed is which buttons sit
+                         in them. STO is gone (the schedule table's own rows
+                         carry Delete), its column is Now's, and STA reads
+                         "Schedule" — the verb the operator was asking for. Now
+                         sends the BARE STA, ignoring both entries; Schedule
+                         REQUIRES an interval, because a blank one WAS the bare
+                         form and nothing said so. -->
+                    <Label Text="LQA exchange" Style="{StaticResource SubHeading}" />
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Label Text="Station:" VerticalOptions="Center" />
+                        <Picker Grid.Column="1" ItemsSource="{Binding Ale.Lqa.ExchChoices}"
+                                SelectedItem="{Binding Ale.Lqa.SelectedExchTarget, Mode=TwoWay}"
+                                ItemDisplayBinding="{Binding Display, x:DataType=vm:AleTargetChoice}"
+                                MinimumHeightRequest="44"
+                                SemanticProperties.Description="Exchange target station" />
+                    </Grid>
+                    <Grid ColumnDefinitions="80,80,*" ColumnSpacing="8" Padding="4,0">
+                        <Label Text="Interval" Style="{StaticResource Caption}" />
+                        <Label Grid.Column="1" Text="Start" Style="{StaticResource Caption}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="80,80,*,Auto,Auto" ColumnSpacing="8">
+                        <Entry Text="{Binding Ale.Lqa.ExchIntervalText, Mode=TwoWay}"
+                               Placeholder="hh:mm" MinimumHeightRequest="44"
+                               SemanticProperties.Description="Exchange interval (optional)" />
+                        <Entry Grid.Column="1" Text="{Binding Ale.Lqa.ExchStartText, Mode=TwoWay}"
+                               Placeholder="hh:mm" MinimumHeightRequest="44"
+                               SemanticProperties.Description="Exchange start time (optional)" />
+                        <Button Grid.Column="3" Text="Now" Style="{StaticResource Segment}"
+                                WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ale.Lqa.NowExchangeCommand}"
+                                SemanticProperties.Description="Run a one-time LQA exchange now (transmits)" />
+                        <Button Grid.Column="4" Text="Schedule" Style="{StaticResource Segment}"
+                                WidthRequest="{StaticResource SegmentWidthWide}"
+                                Command="{Binding Ale.Lqa.StartExchangeCommand}"
+                                SemanticProperties.Description="Start the exchange schedule (will transmit on schedule)" />
+                    </Grid>
+                    <Label Text="{Binding Ale.Lqa.ExchError}" Style="{StaticResource ErrorCaption}" />
+
+                    <!-- SOU: scheduled sounding from a SELF address (the radio's own
+                         address-type restriction). Same two-line geometry. -->
+                    <Label Text="Sounding" Style="{StaticResource SubHeading}" />
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <Label Text="Self:" VerticalOptions="Center" />
+                        <Picker Grid.Column="1" ItemsSource="{Binding Ale.Lqa.SouChoices}"
+                                SelectedItem="{Binding Ale.Lqa.SelectedSouSelf, Mode=TwoWay}"
+                                ItemDisplayBinding="{Binding Display, x:DataType=vm:AleTargetChoice}"
+                                MinimumHeightRequest="44"
+                                SemanticProperties.Description="Self address for sounding" />
+                    </Grid>
+                    <Grid ColumnDefinitions="80,80,*" ColumnSpacing="8" Padding="4,0">
+                        <Label Text="Interval" Style="{StaticResource Caption}" />
+                        <Label Grid.Column="1" Text="Start" Style="{StaticResource Caption}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="80,80,*,Auto,Auto" ColumnSpacing="8">
+                        <Entry Text="{Binding Ale.Lqa.SouIntervalText, Mode=TwoWay}"
+                               Placeholder="hh:mm" MinimumHeightRequest="44"
+                               SemanticProperties.Description="Sounding interval (optional)" />
+                        <Entry Grid.Column="1" Text="{Binding Ale.Lqa.SouStartText, Mode=TwoWay}"
+                               Placeholder="hh:mm" MinimumHeightRequest="44"
+                               SemanticProperties.Description="Sounding start time (optional)" />
+                        <Button Grid.Column="3" Text="Now" Style="{StaticResource Segment}"
+                                WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ale.Lqa.NowSoundingCommand}"
+                                SemanticProperties.Description="Sound now from this self (transmits)" />
+                        <Button Grid.Column="4" Text="Schedule" Style="{StaticResource Segment}"
+                                WidthRequest="{StaticResource SegmentWidthWide}"
+                                Command="{Binding Ale.Lqa.StartSoundingCommand}"
+                                SemanticProperties.Description="Start the sounding schedule (will transmit on schedule)" />
+                    </Grid>
+                    <Label Text="{Binding Ale.Lqa.SouError}" Style="{StaticResource ErrorCaption}" />
+
+                    <!-- The queued schedules: a MIRROR of the radio's own bare
+                         EXCH listing (round 11 §4), re-read on EVERY landing on
+                         this tab and after every accepted write. NOT the app's
+                         memory any more — these rows survive a reconnect and
+                         show schedules this app never set.
+                         Delete acts on the ROW's captured kind and address and
+                         is UNCONFIRMED, deliberately — the per-row Removes
+                         precedent. No EmptyView: the projection is the real
+                         rows or ONE hyphen row (unread and read-empty render
+                         identically — decided).
+                         ROUND 15 §16 F-1: the button said "Stop", which read as
+                         though it halted a running LQA — the pane's own STOP is
+                         what does that. It REMOVES the queued schedule.
+
+                         BROADCAST ROUND F2 (plan-ale-broadcast-round.md,
+                         OWNER RULING 6, 2026-08-24): the row is ONE LINE now.
+                         It was two — kind + address, then a right-aligned
+                         interval / start / Delete block — which put a schedule's
+                         WHEN on a different line from its WHO and made two
+                         queued rows hard to tell apart at a glance. The station
+                         rows had already taken the same ruling (round 13 §4 A3).
+                         Columns "56,*,56,56,Auto" at spacing 8: Type · Address
+                         (star, wrapping in its own cell like a station name) ·
+                         Interval · Next · Delete. The header MIRRORS the field
+                         columns and leaves the Delete column UNHEADED — the
+                         button names itself, exactly as the station cards'
+                         action columns do. "Type" is the ruling's word (the old
+                         header said "Sched"); §17's deleted "Type" was the
+                         STATION cards' kind column, a different fact on a
+                         different card. -->
+                    <Grid ColumnDefinitions="56,*,56,56,Auto" ColumnSpacing="8" Padding="4,0">
+                        <Label Text="Type" Style="{StaticResource Caption}" />
+                        <Label Grid.Column="1" Text="Address" Style="{StaticResource Caption}" />
+                        <Label Grid.Column="2" Text="Interval" Style="{StaticResource Caption}" />
+                        <Label Grid.Column="3" Text="Next" Style="{StaticResource Caption}" />
+                    </Grid>
+                    <VerticalStackLayout Spacing="2"
+                                         BindableLayout.ItemsSource="{Binding Ale.Lqa.ScheduleDisplayRows}"
+                                         SemanticProperties.Description="Queued LQA schedules (radio mirror)">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LqaScheduleRowViewModel">
+                                <!-- ONE grid, one line (F2). The address owns
+                                     the star column and WRAPS inside it
+                                     (CharacterWrap: an ALE address is one
+                                     contiguous token), two lines max, centred
+                                     against its single-line neighbours — the
+                                     station rows' own idiom. -->
+                                <Grid ColumnDefinitions="56,*,56,56,Auto" ColumnSpacing="8" Padding="4,2">
+                                    <Label Text="{Binding KindText}" FontFamily="Consolas"
+                                           FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                                    <Label Grid.Column="1" Text="{Binding Address}" FontFamily="Consolas"
+                                           FontAttributes="Bold" FontSize="16" VerticalOptions="Center"
+                                           LineBreakMode="CharacterWrap" MaxLines="2" />
+                                    <Label Grid.Column="2" Text="{Binding IntervalText}" FontFamily="Consolas"
+                                           FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                                    <Label Grid.Column="3" Text="{Binding StartText}" FontFamily="Consolas"
+                                           FontAttributes="Bold" FontSize="16" VerticalOptions="Center" />
+                                    <Button Grid.Column="4" Text="Delete" Style="{StaticResource Segment}"
+                                            Command="{Binding DeleteCommand}"
+                                            IsEnabled="{Binding CanDelete}" IsVisible="{Binding CanDelete}"
+                                            SemanticProperties.Description="Remove this scheduled LQA from the radio" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <!-- ROUND 15 §16 F-5 (owner): the LQA card's own Refresh —
+                         the LAST child, right-aligned, per the constitution's Y2
+                         rule. It re-reads the SCHEDULE mirror (one bare EXCH,
+                         nothing else); the RANK report keeps its own per-station
+                         Read button above. ACTION class: no WidthRequest — the
+                         scope-naming text sizes it. -->
+                    <Button Text="Refresh LQA" Style="{StaticResource Segment}"
+                            HorizontalOptions="End"
+                            Command="{Binding Ale.Lqa.RefreshCommand}"
+                            SemanticProperties.Description="Re-read the queued LQA schedules" />
+
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== Heard stations (owner design 2026-08-24) ====
+                 The who's-reachable table, fed by the SOUND FROM / RESP FROM
+                 lines (field capture #2): ONE row per station — the channels
+                 of its CURRENT sounding pass (a >10 min gap starts the list
+                 fresh) and the app-clock time last heard. Session-scoped,
+                 newest first; the raw per-line history stays in the console. -->
+            <Border Style="{StaticResource Card}" IsVisible="{Binding Ale.IsLqaTabOpen}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Heard stations" Style="{StaticResource CardHeading}" />
+
+                    <Grid ColumnDefinitions="130,*,56" ColumnSpacing="8" Padding="4,0">
+                        <Label Text="Station" Style="{StaticResource CellHeading}" />
+                        <Label Grid.Column="1" Text="Heard on" Style="{StaticResource CellHeading}" />
+                        <Label Grid.Column="2" Text="Last" Style="{StaticResource CellHeading}" />
+                    </Grid>
+
+                    <VerticalStackLayout Spacing="2"
+                                         BindableLayout.ItemsSource="{Binding Ale.Lqa.HeardRows}"
+                                         SemanticProperties.Description="Stations heard on the air (soundings and exchange responses)">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:HeardStationRowViewModel">
+                                <Grid ColumnDefinitions="130,*,56" ColumnSpacing="8" Padding="4,2">
+                                    <Label Text="{Binding Station}" FontFamily="Consolas"
+                                           FontAttributes="Bold" FontSize="16" VerticalOptions="Center"
+                                           LineBreakMode="CharacterWrap" MaxLines="2" />
+                                    <Label Grid.Column="1" Text="{Binding ChannelsText}" FontFamily="Consolas"
+                                           FontSize="16" VerticalOptions="Center" LineBreakMode="WordWrap" />
+                                    <Label Grid.Column="2" Text="{Binding LastHeardText}" Style="{StaticResource Caption}"
+                                           VerticalOptions="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                        <BindableLayout.EmptyView>
+                            <Label Text="Nothing heard yet this session." Style="{StaticResource Caption}" Padding="4" />
+                        </BindableLayout.EmptyView>
+                    </VerticalStackLayout>
+
+                    <!-- Y2: the card's own action LAST, right-aligned. View
+                         state only — clears the table, sends nothing. -->
+                    <Button Text="Clear" Style="{StaticResource Segment}"
+                            HorizontalOptions="End"
+                            Command="{Binding Ale.Lqa.ClearHeardCommand}"
+                            SemanticProperties.Description="Clear the heard-stations table (display only)" />
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentView>

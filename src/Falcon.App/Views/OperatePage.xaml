@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Operate page: the persistent spine (plan §4.1) above the active mode
+    pane (SSB §4.2 / HOP §4.3 / ALE §4.4).
+
+    GUI-rejigger Wave 0: the spine and the three mode panes are
+    ContentViews under OperateParts/ (SpineView, SsbPaneView, HopPaneView,
+    AlePaneView), composed here. Each part inherits this page's
+    BindingContext (OperateViewModel), so every binding path is exactly as
+    before. The mode-pane placeholder stays on the page: it belongs to no
+    single pane. (The channel-list flyout is gone — rejigger F7 deleted
+    the DI 0-99 list along with its button.)
+
+    Constitution notes (§2.4): every radio-backed binding here is ONE-WAY
+    (state: Radio → VM → view); user intent goes through explicit commands
+    with parameters. There are no two-way bindings to radio state anywhere
+    on this page, and no control's visual state changes before the radio's
+    answer arrives.
+
+    Stage 8 adaptive layout (plan §4.6) — same XAML, no forked pages:
+    - The two spine rows are wrapping FlexLayouts: one line each on
+      desktop (ends aligned, the Stage 3 look), wrapping into a condensed
+      stack on the phone idiom.
+    - Pane sections are cards (shared Card style).
+    - The frequency digit strips sit in a phone-only horizontal ScrollView
+      (Orientation=Neither on desktop = inert) so the ≥44dp chevron
+      targets are never shrunk to force a fit on narrow screens.
+    - All colors come from the App.xaml light/dark resource dictionary.
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             xmlns:parts="clr-namespace:Falcon.App.Views.OperateParts"
+             x:Class="Falcon.App.Views.OperatePage"
+             x:DataType="vm:OperateViewModel"
+             Title="Operate">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="{OnIdiom Default=12, Phone=8}" RowSpacing="{OnIdiom Default=12, Phone=8}">
+
+        <!-- ======================= SPINE (plan §4.1) ==================== -->
+        <parts:SpineView Grid.Row="0" />
+
+        <!-- ==================== Mode pane area ========================== -->
+        <!-- SSB pane (Stage 4) renders when the CONFIRMED mode is SSB, the
+             HOP pane (Stage 5) when it is HOP, the ALE pane (Stage 6) when
+             it is ALE; otherwise the placeholder shows.
+             Constitution: every radio-backed binding below is one-way;
+             chevron/segment taps send commands, displays move only on the
+             radio's answer; unconfirmed values render em-dashes.
+             Stage 8: sections are cards (plan §4.6). -->
+        <Grid Grid.Row="1">
+
+            <!-- Placeholder: visible until the radio confirms a mode. -->
+            <Border Style="{StaticResource Card}" Padding="24" IsVisible="True">
+                <Border.Triggers>
+                    <DataTrigger TargetType="Border" Binding="{Binding Mode.IsSsbActive}" Value="True">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Border" Binding="{Binding Mode.IsHopActive}" Value="True">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                    <DataTrigger TargetType="Border" Binding="{Binding Mode.IsAleActive}" Value="True">
+                        <Setter Property="IsVisible" Value="False" />
+                    </DataTrigger>
+                </Border.Triggers>
+                <VerticalStackLayout Spacing="6" VerticalOptions="Center" HorizontalOptions="Center">
+                    <Label Text="Mode pane" Style="{StaticResource EmptyPaneHint}" HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==================== SSB pane (plan §4.2) ================= -->
+            <parts:SsbPaneView />
+
+            <!-- ==================== HOP pane (plan §4.3) ================= -->
+            <parts:HopPaneView />
+
+            <!-- ==================== ALE pane (plan §4.4) ================= -->
+            <parts:AlePaneView />
+        </Grid>
+
+        <!-- Status line: the rate-limited error toast (never modal).
+
+             ROUND 13 C2 (backlog item 13, owner 2026-08-19): the line gains a
+             DISMISS control at its right edge. The caption keeps the elastic
+             column and its TailTruncation — the ✕ takes a fixed Auto column, so
+             a long message is truncated rather than pushing the button off the
+             screen. The button is bound to HasToast, so it appears only when
+             there is something to clear: an invisible child is not measured, so
+             an empty status line costs no height. Bare glyph + semantic
+             description, per the channel-spinner precedent in SsbPaneView. -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Label Text="{Binding Session.ToastText}" Style="{StaticResource ErrorCaption}"
+                   LineBreakMode="TailTruncation"
+                   VerticalOptions="Center"
+                   SemanticProperties.Description="Status messages" />
+            <Button Grid.Column="1" Text="✕" FontSize="10" Padding="0"
+                    WidthRequest="44" HeightRequest="44"
+                    TextColor="{AppThemeBinding Light={StaticResource ErrorTextLight}, Dark={StaticResource ErrorTextDark}}"
+                    Command="{Binding Session.DismissToastCommand}"
+                    IsVisible="{Binding Session.HasToast}"
+                    SemanticProperties.Description="Dismiss the error message" />
+        </Grid>
+    </Grid>
+</ContentPage>

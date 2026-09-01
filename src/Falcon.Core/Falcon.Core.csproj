@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- MAUI-free core: protocol, radio model, transport seams. net10.0 for
+         host unit tests and the Windows head; net10.0-android so the Android
+         head links the same assembly. Mirrors SendIt.Protocol. -->
+    <TargetFrameworks>net10.0;net10.0-android</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>Falcon.Core.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <!-- WindowsSerialPort (Stage 2) rides the SendIt pattern: it lives in the
+       shared project and only DI registration is platform-conditional — but
+       System.IO.Ports has no Android support, so the desktop TFM gets the
+       package + the file and the android TFM gets neither. The rest of the
+       transport stack (ISerialPort seam, SerialTransport) is platform-free
+       and compiles for both TFMs. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="System.IO.Ports" Version="10.0.5" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
+    <Compile Remove="Transport\WindowsSerialPort.cs" />
+  </ItemGroup>
+
+</Project>

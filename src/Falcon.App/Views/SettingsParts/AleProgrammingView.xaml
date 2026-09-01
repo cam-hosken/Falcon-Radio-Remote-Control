@@ -1,0 +1,463 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Address programming card — ALE settings pane (Mode settings → ALE), the
+    app's fourth programming surface (plan-ale-programming.md §4.5, scope
+    amendment X8). Built on the ModemPresetsView skeleton: Card border,
+    CardHeading, DisabledReason caption, a two-tab strip with DataTrigger
+    highlight, and a self-binding code-behind (DI singleton, loud-fail,
+    Loaded → EnsureLoaded).
+
+      "Program"       LEFT, DEFAULT — the kind segment row (Self/Individual/
+                      Net/Member since round 15 E-1; labelled "Type" since
+                      round 11 §3), then either the ADDRESS fields (Name, the
+                      associated-self Picker, the channel-group ◀/▶ wheel) or,
+                      under Member, the net and member Pickers and the picked
+                      net's membership table — and ONE action button whose text
+                      switches with the kind.
+      "Address book"  RIGHT — every stored address of every kind, selfs
+                      INCLUDED, each with a Delete behind a confirm that
+                      re-arms on every press and, on NET rows, its membership
+                      on a second line; the frameless ERASE button sits at the
+                      bottom of THIS tab.
+
+    Constitution notes:
+    - NO blue ValueDisplay anywhere on this card (§4.5). An add-new form has no
+      "current value" to read back: confirmed state renders ONLY as book rows.
+      The ONE remaining ◀/▶ wheel display (channel group) is therefore a PLAIN
+      cell-styled label, not the accent ValueDisplay border — it carries the
+      operator's PENDING SELECTION, which is the recorded deviation from the
+      Option-B rule (ui.md deviation ledger), and dressing that as a
+      radio-state display is exactly what the rule forbids.
+    - X5/K5: the entries are plain hint placeholders; the radio never writes
+      an operator buffer, and nothing on this card prefills.
+    - NO Refresh button (the round-9 doctrine): every editor landing re-reads
+      the book, and the Address book tab is the lazy tier.
+    - TWO-LEVEL gating (owner ruling 5): the whole card greys outside Ready +
+      confirmed ALE, so landings and wheel spins still READ during a scan;
+      the WRITE buttons additionally grey while scanning or while the radio is
+      ON AIR (a call, a link, or an LQA - round 15 I-D2's one term), and the
+      reason caption names the cause and the path.
+
+    Wire notes: every write goes through the ONE programming gate and closes
+    with a station-book re-read — the verify the operator sees. ADDM closes
+    with the same read as the bracket's barrier and then re-reads the NET's own
+    membership (round 11 §5 — the targeted `NETAD <name>` made that possible),
+    so its verify is the member rows appearing, like every other write's.
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             xmlns:behaviors="clr-namespace:Falcon.App.Behaviors"
+             x:Class="Falcon.App.Views.SettingsParts.AleProgrammingView"
+             x:DataType="vm:AleProgrammingViewModel">
+    <ContentView.Resources>
+        <!-- Row-local cell widths (rule K): the book rows and the member table
+             are this card's own tables, so the widths live here rather than in
+             App.xaml. (The WHEEL displays are different — round 11 §5 gave the
+             three of them ONE shared key, AleWheelValueWidth.) -->
+        <x:Double x:Key="AleWidthKind">44</x:Double>
+        <x:Double x:Key="AleWidthName">120</x:Double>
+        <x:Double x:Key="AleWidthGroup">36</x:Double>
+        <x:Double x:Key="AleWidthMemberNumber">36</x:Double>
+
+        <!-- The segment-row template (the SsbSettingsPaneView ChoiceButton,
+             view-local copy). IsActive is the OPERATOR's pick: this is a
+             compose-and-send surface, not a radio-state display. -->
+        <DataTemplate x:Key="AleChoiceButton" x:DataType="vm:ChoiceItem">
+            <!-- Round 10 §3: the kind buttons are the WIDE choice class
+                 (SegmentWidthWide 90) — ONE ROW, label LEFT, inside the stated
+                 phone budget (StyleVocabularyGuardTests pins the arithmetic,
+                 reading the COUNT from the VM). ROUND 15 E-1 made it FOUR:
+                 4 × 90 + 3 × 6 = 378 ≤ 394. -->
+            <Button Text="{Binding Value}" Style="{StaticResource Segment}"
+                    WidthRequest="{StaticResource SegmentWidthWide}"
+                    Command="{Binding SelectCommand}"
+                    SemanticProperties.Description="{Binding Value}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsActive}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                        <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+        </DataTemplate>
+    </ContentView.Resources>
+
+    <Border Style="{StaticResource Card}">
+        <VerticalStackLayout Spacing="10">
+
+            <Label Text="Address programming" Style="{StaticResource CardHeading}" />
+
+            <Label Style="{StaticResource Caption}" Text="{Binding DisabledReason}"
+                   IsVisible="{Binding HasDisabledReason}" />
+
+            <!-- Sub-tab strip: CARD-level, inside the card under the heading
+                 (T3). Landing on Program re-reads the book (an editor
+                 landing); the book tab reads only if nothing has loaded it
+                 yet this session. -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                <Button Text="Program" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                        Command="{Binding OpenProgramTabCommand}"
+                        SemanticProperties.Description="Program tab (add a self, individual or net address)">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsBookTabOpen}" Value="False">
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Grid.Column="1" Text="Address book" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                        Command="{Binding OpenBookTabCommand}"
+                        SemanticProperties.Description="Address book tab (every stored address, with delete and erase)">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsBookTabOpen}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </Grid>
+
+            <VerticalStackLayout Spacing="10" IsEnabled="{Binding AreControlsEnabled}">
+
+                <!-- ========= Program tab ========= -->
+                <VerticalStackLayout Spacing="10" IsVisible="True">
+                    <VerticalStackLayout.Triggers>
+                        <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsBookTabOpen}" Value="True">
+                            <Setter Property="IsVisible" Value="False" />
+                        </DataTrigger>
+                    </VerticalStackLayout.Triggers>
+
+                    <!-- Kind — ROUND 10 §3 (owner-final, 2026-08-16): the label
+                         moves LEFT, joining every other row in the app; the
+                         buttons stay RIGHT-aligned with the house 6-dp spacing
+                         and take SegmentWidthWide. Switching kind is VIEW
+                         STATE and sends NOTHING. -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                        <!-- ROUND 11 §3: the label reads "Type". DISPLAY TEXT
+                             ONLY — the VM property, the choices collection and
+                             the wire are all still Kind. -->
+                        <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Type" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding KindChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource AleChoiceButton}" />
+                    </Grid>
+
+                    <!-- Name: a HINT placeholder only (X5). Names are GLOBAL
+                         across kinds — the radio refuses a duplicate and the
+                         card shows its line; the app pre-checks nothing.
+                         ROUND 15 E-1: hidden under Member, which programs a
+                         RELATIONSHIP between two addresses that already
+                         exist — there is no name to type. -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6"
+                          IsVisible="{Binding ShowAddressFields}">
+                        <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Name" />
+                        <!-- Round 10 §7: ONE bound for every kind. -->
+                        <Entry Grid.Column="1" MaxLength="15"
+                               Placeholder="1-15 characters"
+                               Text="{Binding NameInput, Mode=TwoWay}"
+                               SemanticProperties.Description="Address name entry — sent trimmed and uppercased">
+                            <Entry.Behaviors>
+                                <behaviors:SelectAllOnFocusBehavior />
+                            </Entry.Behaviors>
+                        </Entry>
+                    </Grid>
+
+                    <!-- Associated self — Individual and Net ONLY, and the
+                         Self write path calls a TWO-argument wrapper, so a
+                         stale selection can never ride along.
+                         ROUND 15 E-5 (owner): the ◀/▶ wheel became a PICKER
+                         and moved ABOVE the channel group, because picking the
+                         self is what tells you which group to expect: the pick
+                         SETS the group wheel to that self's group. It is a
+                         DEFAULT, not a lock — the wheel still spins freely,
+                         and the radio stores whatever group is sent. The offer
+                         is the MIRROR's own selfs, in its listing order; an
+                         empty book offers nothing to pick. -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6"
+                          IsVisible="{Binding ShowAssociatedSelf}">
+                        <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Associated self" />
+                        <Picker Grid.Column="1" Title="self"
+                                ItemsSource="{Binding SelfChoices}"
+                                SelectedItem="{Binding AssociatedSelfSelection, Mode=TwoWay}"
+                                SemanticProperties.Description="Associated self to be programmed (view only — sends nothing)" />
+                    </Grid>
+
+                    <!-- Channel group — a ◀ display ▶ WHEEL over 0-9,
+                         wrapping. The display carries the operator's PENDING
+                         SELECTION (the recorded deviation); moving it sends
+                         NOTHING. Chevrons are chevron-class 44 dp.
+                         ROUND 15 E-5: the card's ONE remaining wheel. -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6"
+                          IsVisible="{Binding ShowAddressFields}">
+                        <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Channel group" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                            <Button Text="◀" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding GroupDownCommand}"
+                                    SemanticProperties.Description="Previous channel group (view only — sends nothing)" />
+                            <Label Style="{StaticResource CellValue}"
+                                   WidthRequest="{StaticResource AleWheelValueWidth}"
+                                   FontFamily="Consolas" VerticalTextAlignment="Center"
+                                   HorizontalTextAlignment="Center"
+                                   Text="{Binding GroupText}"
+                                   SemanticProperties.Description="Channel group to be programmed" />
+                            <Button Text="▶" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding GroupUpCommand}"
+                                    SemanticProperties.Description="Next channel group (view only — sends nothing)" />
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <!-- ROUND 11 §5 (owner ruling R2): the round-10 standing
+                         two-line caption is DELETED and this CONTEXTUAL hint
+                         replaces it — one line, on screen only while the
+                         operator is composing a SELF longer than the three
+                         characters the scan gate accepts. It states what the
+                         radio does (stores) and what it will not do (satisfy
+                         the gate), in operator words with no radio token in
+                         them (R13). -->
+                    <Label Style="{StaticResource Caption}"
+                           IsVisible="{Binding ShowSelfGateHint}"
+                           Text="{x:Static vm:AleProgrammingViewModel.SelfGateHint}" />
+
+                    <!-- ===== Member: the two PICKERS (ROUND 15 E-1) =====
+                         The Member kind adds an EXISTING address to an
+                         EXISTING net, so both operands are picked from the
+                         radio's own book rather than typed. Picking a net
+                         reads that net's membership once per session — the
+                         ONLY wire effect of any pick on this card. The member
+                         offer is a property OF the net (individuals, plus
+                         EXACTLY that net's own associated self — any other
+                         self is refused), so it is empty and disabled until a
+                         net is picked, and the caption says so. The offer is
+                         FILTERED to the net's channel group (app policy
+                         2026-08-23): a member in another group will not scan
+                         with the net. The radio itself accepts a cross-group
+                         member, so one added from the front panel still shows
+                         in the membership table. Each candidate still shows its
+                         group beside its name. -->
+                    <VerticalStackLayout Spacing="10" IsVisible="{Binding ShowMemberSection}">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                            <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Net" />
+                            <Picker Grid.Column="1" Title="net"
+                                    ItemsSource="{Binding NetChoices}"
+                                    SelectedItem="{Binding NetPick, Mode=TwoWay}"
+                                    SemanticProperties.Description="The net to add a member to" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                            <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Member" />
+                            <Picker Grid.Column="1" Title="member"
+                                    ItemsSource="{Binding MemberChoices}"
+                                    ItemDisplayBinding="{Binding Display}"
+                                    SelectedItem="{Binding MemberPick, Mode=TwoWay}"
+                                    IsEnabled="{Binding CanPickMember}"
+                                    SemanticProperties.Description="The address to add, with its channel group" />
+                        </Grid>
+
+                        <Label Style="{StaticResource Caption}"
+                               IsVisible="{Binding ShowPickANetFirst}"
+                               Text="{x:Static vm:AleProgrammingViewModel.PickANetFirstCaption}" />
+                    </VerticalStackLayout>
+
+                    <!-- ONE action button (ROUND 15 E-D2) — the whole address
+                         as one command under the three address kinds, the
+                         ADDM under Member, and the closing book read that
+                         proves either. Round 10 §3: ACTION class, so the
+                         SegmentWidth pin is DE-PINNED and the button sizes
+                         naturally. Its TEXT switches with the kind, which is
+                         exactly why it is ONE command seat and not two. -->
+                    <Button Text="{Binding ActionText}" Style="{StaticResource Segment}"
+                            HorizontalOptions="End"
+                            Command="{Binding ActionCommand}"
+                            SemanticProperties.Description="Program this address, or add this member to the net" />
+
+                    <!-- ===== Net members (Member kind only) — ROUND 11 §5,
+                         re-keyed by ROUND 15 E-1 =====
+                         Membership became READABLE on 2026-08-17 (the targeted
+                         `NETAD <name>` and its indented MEMBER nn lines), so
+                         this section is a RADIO MIRROR: the picked net's rows
+                         in the radio's own insertion order.
+                         THREE STATES, never conflated: one hyphen row while
+                         the net's membership is UNREAD, the caption when the
+                         radio has CONFIRMED it empty, the rows otherwise.
+                         There is NO Remove member: the wire has no such verb —
+                         removal is the book tab's DELAD, which is global and
+                         asks first — and the caption under the table says so
+                         in prose rather than leaving the absence unexplained. -->
+                    <VerticalStackLayout Spacing="10" IsVisible="{Binding ShowMemberSection}">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                            <Label Text="#" Style="{StaticResource CellHeading}"
+                                   WidthRequest="{StaticResource AleWidthMemberNumber}" />
+                            <Label Grid.Column="1" Text="Member" Style="{StaticResource CellHeading}" />
+                        </Grid>
+
+                        <VerticalStackLayout Spacing="6"
+                                             BindableLayout.ItemsSource="{Binding MemberDisplayRows}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AleMemberRow">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                        <Label Text="{Binding NumberText}" FontFamily="Consolas"
+                                               FontAttributes="Bold" FontSize="16"
+                                               VerticalOptions="Center"
+                                               WidthRequest="{StaticResource AleWidthMemberNumber}"
+                                               SemanticProperties.Description="The radio's own member number" />
+                                        <Label Grid.Column="1" Text="{Binding AddressText}" FontFamily="Consolas"
+                                               FontAttributes="Bold" FontSize="16"
+                                               VerticalOptions="Center"
+                                               SemanticProperties.Description="Member address stored in this net" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+
+                        <!-- State 2 of three: the radio CONFIRMED this net has
+                             no members (its own NO MEMBERS PRGMD). The unread
+                             state is the hyphen ROW above, not this. -->
+                        <Label Style="{StaticResource Caption}"
+                               IsVisible="{Binding HasNoMembers}"
+                               Text="{x:Static vm:AleProgrammingViewModel.NoMembersCaption}" />
+
+                        <!-- E-D1: the absence, stated. The radio has no
+                             per-net removal verb, so the card offers none and
+                             says what to do instead. -->
+                        <Label Style="{StaticResource Caption}"
+                               LineBreakMode="WordWrap"
+                               Text="{x:Static vm:AleProgrammingViewModel.NoMemberRemovalCaption}" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+
+                <!-- ========= Address book tab ========= -->
+                <VerticalStackLayout Spacing="10" IsVisible="False">
+                    <VerticalStackLayout.Triggers>
+                        <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsBookTabOpen}" Value="True">
+                            <Setter Property="IsVisible" Value="True" />
+                        </DataTrigger>
+                    </VerticalStackLayout.Triggers>
+
+                    <!-- ROUND 11 §3: the column header reads "Type" (display
+                         text only). §5/R3 added the PRIMARY column between the
+                         associated self and the Delete: it is empty on every
+                         row but the listing's FIRST SELF. -->
+                    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
+                        <Label Text="Type" Style="{StaticResource CellHeading}"
+                               WidthRequest="{StaticResource AleWidthKind}" />
+                        <Label Grid.Column="1" Text="Name" Style="{StaticResource CellHeading}"
+                               WidthRequest="{StaticResource AleWidthName}" />
+                        <Label Grid.Column="2" Text="Grp" Style="{StaticResource CellHeading}"
+                               WidthRequest="{StaticResource AleWidthGroup}" />
+                        <Label Grid.Column="3" Text="Assoc self" Style="{StaticResource CellHeading}" />
+                    </Grid>
+
+                    <VerticalStackLayout Spacing="6"
+                                         BindableLayout.ItemsSource="{Binding BookRows}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AleBookRow">
+                                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto"
+                                      RowDefinitions="Auto,Auto" ColumnSpacing="8">
+                                    <!-- ROUND 15 E-2: every row-0 cell is
+                                         VERTICALLY CENTRED. The Delete button
+                                         is 44 dp tall and the labels had no
+                                         VerticalOptions at all, so the text
+                                         sat at the top of the row and read as
+                                         if it belonged to a different line
+                                         than its own button. -->
+                                    <Label Text="{Binding KindText}" Style="{StaticResource CellValue}"
+                                           VerticalOptions="Center"
+                                           WidthRequest="{StaticResource AleWidthKind}"
+                                           SemanticProperties.Description="Address kind" />
+                                    <Label Grid.Column="1" Text="{Binding NameText}" Style="{StaticResource CellValue}"
+                                           VerticalOptions="Center"
+                                           WidthRequest="{StaticResource AleWidthName}"
+                                           SemanticProperties.Description="Stored address name" />
+                                    <Label Grid.Column="2" Text="{Binding GroupText}" Style="{StaticResource CellValue}"
+                                           VerticalOptions="Center"
+                                           WidthRequest="{StaticResource AleWidthGroup}"
+                                           SemanticProperties.Description="Stored channel group" />
+                                    <Label Grid.Column="3" Text="{Binding AssociatedSelfText}" Style="{StaticResource CellValue}"
+                                           VerticalOptions="Center"
+                                           SemanticProperties.Description="Associated self, or a dash when the radio reports none" />
+                                    <!-- R3: the primary-self tag, on the book
+                                         listing ONLY (the Operate selfs card is
+                                         untouched). Position, not identity —
+                                         it renders whichever self leads the
+                                         radio's own listing. -->
+                                    <Label Grid.Column="4" Text="{Binding PrimaryTagText}"
+                                           Style="{StaticResource Caption}"
+                                           VerticalOptions="Center"
+                                           IsVisible="{Binding IsPrimarySelf}"
+                                           SemanticProperties.Description="This is the radio's primary self" />
+                                    <!-- ROUND 15 D: the NET row's member line,
+                                         indented under Name and spanning
+                                         Name·Grp·Assoc. It reads the SAME three
+                                         states the Program tab's table does —
+                                         the hyphen while unread, the read-empty
+                                         caption, or the names in the radio's
+                                         insertion order. It WRAPS rather than
+                                         widening the row, so the 448-dp phone
+                                         budget is untouched: the line lives
+                                         inside the existing * column.
+                                         Written BEFORE the Delete button so
+                                         "Delete is the last cell" keeps holding
+                                         literally (critic F36). -->
+                                    <Label Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3"
+                                           Style="{StaticResource Caption}"
+                                           Text="{Binding MembersText}"
+                                           IsVisible="{Binding HasMembersText}"
+                                           LineBreakMode="WordWrap"
+                                           SemanticProperties.Description="Net members" />
+                                    <Button Grid.Column="5" Text="Delete" Style="{StaticResource Segment}"
+                                            VerticalOptions="Center"
+                                            Command="{Binding Delete}"
+                                            CommandParameter="{Binding NameText}"
+                                            SemanticProperties.Description="Delete this address from the radio" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <Label Style="{StaticResource Caption}"
+                           IsVisible="{Binding HasNoBookRows}"
+                           Text="No addresses reported yet." />
+
+                    <!-- ROUND 10 §5: the inline delete-confirm box is DELETED.
+                         The question is a two-button POPUP (IConfirmationPrompt
+                         — the VM never touches MAUI UI), raised on EVERY press,
+                         and a SELF row's popup names the CASCADE. Its pins moved
+                         with it, from markup to the VM's lifecycle tests. -->
+
+                    <!-- ERASE — the guarded control, at the BOTTOM of the book
+                         tab. ROUND 10 §5: the typed-token Entry is GONE from
+                         here AND the token parameter is gone from Core; the
+                         POPUP is the confirmation now, asked every press.
+                         ROUND 15 E-3 (owner): the warn-stroked Border, the
+                         SubHeading and the standing warning caption are
+                         DELETED too. A frame and a paragraph that shout on
+                         every landing are not what stops a mis-press — the
+                         question is, and it is asked every time. What is left
+                         is ONE button whose own text says what it does. -->
+                    <Button Text="Erase address book" Style="{StaticResource Segment}"
+                            HorizontalOptions="End"
+                            Command="{Binding EraseCommand}"
+                            SemanticProperties.Description="Erase every ALE address on the radio" />
+                </VerticalStackLayout>
+
+                <!-- Notes, shared by both tabs: the client-side refusal, the
+                     gate's outcome (empty on Accepted — the re-read row is the
+                     proof), and why the write buttons are grey while the card
+                     itself is live. -->
+                <Label Style="{StaticResource ErrorCaption}" Text="{Binding InputError}"
+                       IsVisible="{Binding HasInputError}" />
+                <!-- ErrorCaption, deliberately: this is EMPTY on Accepted, so
+                     the only things it ever renders are Refused / Unverified /
+                     Failed — every one of them something the operator must
+                     not miss on a programming surface. -->
+                <Label Style="{StaticResource ErrorCaption}" Text="{Binding OperationStatus}"
+                       IsVisible="{Binding HasOperationStatus}" />
+                <Label Style="{StaticResource Caption}" Text="{Binding WriteDisabledReason}"
+                       IsVisible="{Binding HasWriteDisabledReason}" />
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

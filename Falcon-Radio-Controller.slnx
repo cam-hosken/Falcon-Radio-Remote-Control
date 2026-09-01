@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/Falcon.Core/Falcon.Core.csproj" />
+  <Project Path="src/Falcon.App.Core/Falcon.App.Core.csproj" />
+  <Project Path="src/Falcon.App/Falcon.App.csproj" />
+  <Project Path="tests/Falcon.Core.Tests/Falcon.Core.Tests.csproj" />
+  <Project Path="tests/Falcon.App.Tests/Falcon.App.Tests.csproj" />
+</Solution>

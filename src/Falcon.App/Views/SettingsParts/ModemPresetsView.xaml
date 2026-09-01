@@ -1,0 +1,613 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Modem presets card — REBUILT round 9 on the CHANNEL-EDITOR model (owner
+    ruling 3). Radio settings → Settings tab. Two sub-tabs:
+
+      "Preset programming"  LEFT, DEFAULT — the preset picker (0-6 at an
+                            SSB or ALE prompt, 7-9 at a HOP one — clone-field
+                            round 2 F11) with the picked preset's SINGLE LIST
+                            ROW beside it (the same projection the list tab
+                            renders — two views of one preset cannot
+                            disagree), a Name entry, the type-switched
+                            selections, the baud wheel, and ONE Store.
+      "Preset list"         RIGHT — the stored presets, READ-ONLY: # and
+                            Name parsed, Parameters VERBATIM.
+
+    ROUND 9 CHANGES, in one place:
+      - The three blue per-field displays (name / baud / interleave) are
+        DELETED. The read-back row beside the picker is the ONE value
+        display on this card.
+      - Value tokens on the wire are the HELP screen's ABBREVIATIONS; the
+        buttons show human-readable WORDS (ModemPresetVocabulary owns both
+        columns plus the listing spellings that prefill them).
+      - The four segment rows (Type / Interleave / Mode / Preset state)
+        RIGHT-ALIGN, house 6-dp spacing.
+
+    ROUND 10 (§3/§8), on top of that:
+      - PLACEMENT is now per-row (owner-final 2026-08-16): Type, Mode and
+        Preset state carry their labels LEFT like every other row in the app;
+        INTERLEAVE alone keeps its label ABOVE — the ONE sanctioned above-label
+        row, ledger-recorded, because its five buttons need the full card
+        width. The round-9 "labels above as a class" is retired, and so is the
+        row-local TypeRowSpacing knob: the WIDTHS carry the fit now.
+      - The rows SPLIT: Type 3+3 and Interleave 3+2 at SegmentWidthWide (90),
+        Mode 2+1 at SegmentWidthXWide (132) with the full port words. The
+        row label is "Mode", because the buttons say "port".
+        (ROUND 11 §3 supersedes both halves of that line — see below.)
+      - The read-back beside the picker is the ENRICHED projection: two fixed
+        header+value lines (# | Name | Type | Data mode, then Baud |
+        Interleave OR Mark+Space | State), falling back to ONE VERBATIM
+        Parameters cell when the mandatory Type/Data-mode/Baud trio does not
+        all map. The LIST tab is UNCHANGED — still # | Name | verbatim
+        Parameters.
+      - Baud is a ◀ display ▶ WHEEL over the discrete HELP set. Its display
+        shows the operator's PENDING SELECTION, not radio state — a
+        deliberate deviation from the Option-B rule, recorded in ui.md;
+        radio state lives on the read-back row.
+      - Interleave renders only under 39-tone / Serial (ASSUMED — a
+        tone-waveform inference, bench item A6d); Mark/Space only under the
+        four FSK types; neither while no type is selected.
+        (ROUND 11 §6 supersedes both halves: the interleave inference is now
+        VERIFIED and additionally excludes Serial at 4800, and Mark/Space are
+        offered at FSK VFT ALONE. The ROW PROJECTION's type map is unchanged —
+        see below.)
+      - NO Refresh button: every EDITOR LANDING (view Loaded, Ready arrival,
+        picker spin, programming-tab landing) sends a fresh MODEM PRE. The
+        preset LIST tab is the lazy tier.
+
+    ROUND 11 (§3/§6), on top of that:
+      - The "Mode" row is the PORT row: label "Port", buttons "Remote port
+        (async)" / "Data port (async)" / "Data port (sync)". The TYPE words
+        are "39 tone" / "Serial" / "FSK wide" / "FSK narrow" / "FSK ASCII" /
+        "FSK VFT". Display text only — every wire token is untouched.
+      - Both rows move to SegmentWidthPort, where the budget is TWO
+        buttons per line: Type is 2+2+2 (replacing round 10's 3+3 at 90) and
+        Port is 2+1. Interleave and Preset state stay at SegmentWidthWide.
+        (CLONE ROUND 12 §9 A5: that shared width goes 136 -> 184 on the owner's
+        ruling — 136 CLIPPED "Remote port (async)" and the 336-dp phone budget
+        that blocked widening was itself stale. See App.xaml.)
+      - The READ MODEL has two sources (§6). The LIST tab's once-per-session
+        landing runs the seven-preset FIELD batch and then queues the bulk
+        PRESENCE read behind it; the §8 single-slot modem queue is what makes
+        that order real, and it is why a targeted row can never be counted as
+        "enabled". The EDITOR reads ONE preset targeted per landing/spin.
+      - The list gains a STATE column: "Enabled" iff a COMPLETED presence read
+        listed the preset, "Disabled" iff it did not, "—" while unknown or in
+        flight.
+
+    CLONE ROUND 12 §9 A3, on top of that:
+      - The READ-BACK block beside the picker binds PRESENCE too. Round 11 left
+        its "State" cell on the listing-derived value, which no capture has
+        ever carried — structurally always "—", so the operator programming a
+        preset was the one person who could not see whether the write took. The
+        listing-derived cell is DELETED from the projection.
+      - PRESENCE is therefore whole-card: it runs ONCE per session behind its
+        own gate, on whichever tab lands first, separate from the list tab's
+        seven-read field batch.
+      - The offers are TYPE-SCOPED (§6): the baud wheel cycles only what the
+        picked type stores (every excess is silently CLAMPED), interleave
+        offers 39-tone LO/SH/ALTS/ALTL and Serial LO/SH/ZE below 4800 and
+        hides otherwise, and MARK/SPACE (350-3250) appear at FSK VFT only.
+      - An INTERLEAV-carrying write is REFUSED app-side at an ALE> prompt: the
+        radio swallows it there.
+
+    Wire notes: MODEM PRE is bench-confirmed at SSB/ALE prompts, UNPROBED
+    from HOP. The ARGUMENT NAMES of the write are the session-15 form; the
+    short VALUE tokens are HELP-derived and their write acceptance is
+    ASSUMED (bench item A6d). The programming ECHO is a listing-form line and
+    upserts the mirror — but it cannot show a clamp or a state change, so
+    round 11 re-reads the written preset targeted, plus the presence read when
+    the line carried EN/DIS.
+
+    Gate: Ready AND a CONFIRMED MODE (clone-field round 2 F11). The card sits
+    on the mode-free Radio settings page — the radio-clock precedent, which is
+    why the gate was Ready ALONE until F11 — but the card's SHAPE is now a
+    claim about which presets the radio has, and that is a fact about the
+    PROMPT. Unconfirmed: every control dark with its reason, no read, no Store.
+    BindingContext = ModemPresetsViewModel (DI singleton,
+    code-behind — the DeviceClockView pattern); Loaded fires the landing read.
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             xmlns:behaviors="clr-namespace:Falcon.App.Behaviors"
+             x:Class="Falcon.App.Views.SettingsParts.ModemPresetsView"
+             x:DataType="vm:ModemPresetsViewModel">
+    <ContentView.Resources>
+        <!-- The row cell widths, shared by the read-back block and the list
+             tab so the two renderings of one preset line up (rule K). -->
+        <x:Double x:Key="PresetWidthNumber">28</x:Double>
+        <x:Double x:Key="PresetWidthName">56</x:Double>
+        <!-- Round 10 §8: the enriched read-back's field cells (Type, Baud,
+             Interleave / Mark / Space), sized to their widest display word
+             ("39-tone", "Alt short", six mark digits). -->
+        <x:Double x:Key="PresetWidthField">76</x:Double>
+
+        <!-- ROUND 10 §3: the choice buttons are the WIDE classes now, so the
+             round-9 row-local TypeRowSpacing knob is gone — every row uses the
+             house 6 dp and the WIDTHS carry the fit (StyleVocabularyGuardTests
+             owns the arithmetic).
+
+             Two templates, one per width class: SegmentWidthWide (90) for
+             interleave / preset state, and — ROUND 11 §3 — SegmentWidthPort
+             for the TYPE and PORT rows, whose words are the card's longest
+             ("Remote port (async)", "FSK narrow"). ONE key drives both rows,
+             which is why clone round 12 §9 A5 widened them TOGETHER, exactly
+             as the owner's ruling asked. -->
+        <DataTemplate x:Key="PresetChoiceButton" x:DataType="vm:ChoiceItem">
+            <Button Text="{Binding Value}" Style="{StaticResource Segment}"
+                    WidthRequest="{StaticResource SegmentWidthWide}"
+                    Command="{Binding SelectCommand}"
+                    SemanticProperties.Description="{Binding Value}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsActive}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                        <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+        </DataTemplate>
+
+        <DataTemplate x:Key="PresetPortChoiceButton" x:DataType="vm:ChoiceItem">
+            <Button Text="{Binding Value}" Style="{StaticResource Segment}"
+                    WidthRequest="{StaticResource SegmentWidthPort}"
+                    Command="{Binding SelectCommand}"
+                    SemanticProperties.Description="{Binding Value}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsActive}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                        <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+        </DataTemplate>
+    </ContentView.Resources>
+
+    <Border Style="{StaticResource Card}">
+        <VerticalStackLayout Spacing="10">
+
+            <Label Text="Modem presets" Style="{StaticResource CardHeading}" />
+
+            <Label Style="{StaticResource Caption}" Text="{Binding DisabledReason}"
+                   IsVisible="{Binding HasDisabledReason}" />
+
+            <!-- Sub-tab strip: pure view state. Landing on programming
+                 re-reads (an editor landing); landing on the list reads only
+                 if nothing has loaded it yet this session. -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                <Button Text="Preset programming" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                        Command="{Binding OpenProgrammingTabCommand}"
+                        SemanticProperties.Description="Preset programming tab (picker and editor)">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsListTabOpen}" Value="False">
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Grid.Column="1" Text="Preset list" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                        Command="{Binding OpenListTabCommand}"
+                        SemanticProperties.Description="Preset list tab (stored presets, read-only)">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsListTabOpen}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                            <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </Grid>
+
+            <VerticalStackLayout Spacing="10" IsEnabled="{Binding AreControlsEnabled}">
+
+                <!-- ========= Preset programming tab ========= -->
+                <VerticalStackLayout Spacing="10" IsVisible="True">
+                    <VerticalStackLayout.Triggers>
+                        <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsListTabOpen}" Value="True">
+                            <Setter Property="IsVisible" Value="False" />
+                        </DataTrigger>
+                    </VerticalStackLayout.Triggers>
+
+                    <!-- Picker + read-back (ruling 3, the channel editor's
+                         CH/EC shape): the spinner in column 0, the picked
+                         preset's SINGLE LIST ROW beside it in the star
+                         column, centred there. Every cell renders only from
+                         MODEM PRE lines, "—" until one arrives; Parameters
+                         wraps under its heading. -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="0">
+                            <Button Text="▲" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding PresetUpCommand}"
+                                    SemanticProperties.Description="Next preset (re-reads the stored presets)" />
+                            <Label Text="{Binding PickedPresetText}" FontSize="30"
+                                   FontAttributes="Bold" FontFamily="Consolas"
+                                   WidthRequest="44" HorizontalTextAlignment="Center" />
+                            <Button Text="▼" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding PresetDownCommand}"
+                                    SemanticProperties.Description="Previous preset (re-reads the stored presets)" />
+                        </VerticalStackLayout>
+
+                        <!-- ROUND 10 §8 — the ENRICHED read-back. TWO fixed
+                             header+value grid LINES (the SSB read-back
+                             precedent):
+                               line 1  #  |  Name  |  Type  |  Data mode
+                               line 2  Baud | Interleave OR Mark+Space | State
+                             …and Interleave-vs-Mark/Space follows the round-9
+                             TYPE MAP, per row.
+
+                             The whole parsed block renders only when the row
+                             PARSED — Type + Data mode + Baud all mapped through
+                             the vocabulary's listing forms. Anything unmapped in
+                             that mandatory trio and the block is replaced by the
+                             ONE VERBATIM cell below it: the AGC precedent, no
+                             column ever invented. (State is OPTIONAL and shows
+                             "—": its listing spellings have never been captured,
+                             so an absent state is a normal row.) -->
+                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center"
+                                             HorizontalOptions="Center">
+                            <!-- LINE 1: # | Name | Type | Data mode. The # and
+                                 Name cells are the round-9 contract and always
+                                 render (they are parsed by the listing SHAPE);
+                                 the two vocabulary cells beside them belong to
+                                 the parsed projection and go with it. -->
+                            <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
+                                <Label Text="#" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource PresetWidthNumber}" />
+                                <Label Grid.Column="1" Text="Name" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource PresetWidthName}" />
+                                <Label Grid.Column="2" Text="Type" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource PresetWidthField}"
+                                       IsVisible="{Binding PickedRow.ShowsType}" />
+                                <Label Grid.Column="3" Text="Data mode" Style="{StaticResource CellHeading}"
+                                       IsVisible="{Binding PickedRow.ShowsType}" />
+                                <!-- THE HOP SHAPE'S OWN TWO COLUMNS (audit round
+                                     1, MAJOR 3). A `HOP>` row has no TYPE field
+                                     at all and carries its mode phrase as two
+                                     independent words, so it reads back as
+                                     Signalling + Port — the same two columns the
+                                     editor offers. Exactly one of the two pairs
+                                     is ever visible, so they share the cells. -->
+                                <Label Grid.Column="2" Text="Signalling" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource PresetWidthField}"
+                                       IsVisible="{Binding PickedRow.IsHopShape}" />
+                                <Label Grid.Column="3" Text="Port" Style="{StaticResource CellHeading}"
+                                       IsVisible="{Binding PickedRow.IsHopShape}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
+                                <Label Text="{Binding PickedRow.NumberText}" Style="{StaticResource CellValue}"
+                                       WidthRequest="{StaticResource PresetWidthNumber}"
+                                       SemanticProperties.Description="Picked preset number" />
+                                <Label Grid.Column="1" Text="{Binding PickedRow.NameText}" Style="{StaticResource CellValue}"
+                                       WidthRequest="{StaticResource PresetWidthName}"
+                                       SemanticProperties.Description="Stored preset name" />
+                                <Label Grid.Column="2" Text="{Binding PickedRow.TypeText}" Style="{StaticResource CellValue}"
+                                       WidthRequest="{StaticResource PresetWidthField}"
+                                       IsVisible="{Binding PickedRow.ShowsType}"
+                                       SemanticProperties.Description="Reported modem type" />
+                                <Label Grid.Column="3" Text="{Binding PickedRow.DataModeText}" Style="{StaticResource CellValue}"
+                                       IsVisible="{Binding PickedRow.ShowsType}"
+                                       SemanticProperties.Description="Reported data mode" />
+                                <Label Grid.Column="2" Text="{Binding PickedRow.SyncText}" Style="{StaticResource CellValue}"
+                                       WidthRequest="{StaticResource PresetWidthField}"
+                                       IsVisible="{Binding PickedRow.IsHopShape}"
+                                       SemanticProperties.Description="Reported signalling" />
+                                <Label Grid.Column="3" Text="{Binding PickedRow.PortText}" Style="{StaticResource CellValue}"
+                                       IsVisible="{Binding PickedRow.IsHopShape}"
+                                       SemanticProperties.Description="Reported port" />
+                            </Grid>
+
+                            <!-- LINE 2, parsed only. -->
+                            <VerticalStackLayout Spacing="2" IsVisible="{Binding PickedRow.IsParsed}">
+                                <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8" Margin="0,4,0,0">
+                                    <Label Text="Baud" Style="{StaticResource CellHeading}"
+                                           WidthRequest="{StaticResource PresetWidthField}" />
+                                    <Label Grid.Column="1" Text="Interleave" Style="{StaticResource CellHeading}"
+                                           WidthRequest="{StaticResource PresetWidthField}"
+                                           IsVisible="{Binding PickedRow.ShowsInterleave}" />
+                                    <Label Grid.Column="1" Text="Mark" Style="{StaticResource CellHeading}"
+                                           WidthRequest="{StaticResource PresetWidthField}"
+                                           IsVisible="{Binding PickedRow.ShowsMarkSpace}" />
+                                    <Label Grid.Column="2" Text="Space" Style="{StaticResource CellHeading}"
+                                           WidthRequest="{StaticResource PresetWidthField}"
+                                           IsVisible="{Binding PickedRow.ShowsMarkSpace}" />
+                                    <Label Grid.Column="3" Text="State" Style="{StaticResource CellHeading}" />
+                                </Grid>
+                                <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
+                                    <Label Text="{Binding PickedRow.BaudText}" Style="{StaticResource CellValue}"
+                                           WidthRequest="{StaticResource PresetWidthField}"
+                                           SemanticProperties.Description="Reported baud" />
+                                    <Label Grid.Column="1" Text="{Binding PickedRow.InterleaveText}" Style="{StaticResource CellValue}"
+                                           WidthRequest="{StaticResource PresetWidthField}"
+                                           IsVisible="{Binding PickedRow.ShowsInterleave}"
+                                           SemanticProperties.Description="Reported interleave" />
+                                    <Label Grid.Column="1" Text="{Binding PickedRow.MarkText}" Style="{StaticResource CellValue}"
+                                           WidthRequest="{StaticResource PresetWidthField}"
+                                           IsVisible="{Binding PickedRow.ShowsMarkSpace}"
+                                           SemanticProperties.Description="Reported FSK mark" />
+                                    <Label Grid.Column="2" Text="{Binding PickedRow.SpaceText}" Style="{StaticResource CellValue}"
+                                           WidthRequest="{StaticResource PresetWidthField}"
+                                           IsVisible="{Binding PickedRow.ShowsMarkSpace}"
+                                           SemanticProperties.Description="Reported FSK space" />
+                                    <!-- CLONE ROUND 12 §9 A3: PRESENCE, not the
+                                         deleted listing-derived StateText. The
+                                         listing never carries a preset's
+                                         enabled state, so this cell was
+                                         structurally always "—". -->
+                                    <Label Grid.Column="3" Text="{Binding PickedRow.PresenceText}" Style="{StaticResource CellValue}"
+                                           SemanticProperties.Description="Reported preset state" />
+                                </Grid>
+                            </VerticalStackLayout>
+
+                            <!-- The FALLBACK: ONE verbatim cell, the radio's own
+                                 text, whenever the shape's mandatory set did not
+                                 all map (and for a preset the radio has never
+                                 listed). It replaces BOTH parsed tails — there
+                                 is nothing honest to put in a typed column when
+                                 the token that names it is unknown.
+                                 A `HOP>` row does NOT come here (audit round 1,
+                                 MAJOR 3): its shape is first-class, with the
+                                 pair port · baud mandatory instead of the SSB
+                                 trio, so it reads back typed like any other. -->
+                            <VerticalStackLayout Spacing="2" Margin="0,4,0,0"
+                                                 IsVisible="{Binding PickedRow.IsNotParsed}">
+                                <Label Text="Parameters" Style="{StaticResource CellHeading}" />
+                                <Label Text="{Binding PickedRow.ParametersText}" Style="{StaticResource CellValue}"
+                                       LineBreakMode="CharacterWrap"
+                                       SemanticProperties.Description="Stored preset parameters, verbatim" />
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <!-- Name: hint placeholder only (K5/X5 — a report never
+                         writes this buffer). Empty at Store re-sends the
+                         reported name; nothing reported refuses. -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                        <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Name" />
+                        <Entry Grid.Column="1" MaxLength="4"
+                               Placeholder="1-4 letters or digits"
+                               Text="{Binding NameInput, Mode=TwoWay}"
+                               SemanticProperties.Description="Preset name entry — empty re-stores the reported name">
+                            <Entry.Behaviors>
+                                <behaviors:SelectAllOnFocusBehavior />
+                            </Entry.Behaviors>
+                        </Entry>
+                    </Grid>
+
+                    <!-- ==== THE SSB / ALE FIELD STACK (clone-field round 2
+                         F11, owner ruling R-D, decision A-9) ================
+                         The card FOLLOWS THE CONFIRMED MODE, and the two shapes
+                         are two stacks with exactly one visible. This one is
+                         the card as it has always been — Type, Interleave and
+                         the welded Port phrase — and it is byte-for-byte
+                         unchanged inside. Its HOP twin is below.
+
+                         ABSENT, not greyed: a `HOP>` preset HAS no type,
+                         interleave or mark/space field (P5/P5b — a `TYPE`
+                         argument draws `** ERROR **` there), so under HOP these
+                         rows are not rendered at all. A disabled control would
+                         say "not now"; the truth is "not on this radio's hop
+                         presets". -->
+                    <VerticalStackLayout Spacing="10" IsVisible="{Binding IsSsbScope}">
+
+                    <!-- Type — REQUIRED. ROUND 11 §3: label LEFT, THREE ROWS OF
+                         TWO at SegmentWidthPort, replacing round 10's 3+3 at
+                         SegmentWidthWide. The per-row budget is the gate
+                         StyleVocabularyGuardTests evaluates; at §9 A5's widened
+                         184 against the corrected 448-dp phone budget that is
+                         2×184+6 = 374 ≤ 448−48−6 = 394 for a "Type" label
+                         allowance of 48. This is the TIGHTER of the two rows
+                         sharing the width, so it is the one that gates it. -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                        <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Type" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                            <HorizontalStackLayout Spacing="6" HorizontalOptions="End"
+                                                   BindableLayout.ItemsSource="{Binding TypeChoicesRow1}"
+                                                   BindableLayout.ItemTemplate="{StaticResource PresetPortChoiceButton}" />
+                            <HorizontalStackLayout Spacing="6" HorizontalOptions="End"
+                                                   BindableLayout.ItemsSource="{Binding TypeChoicesRow2}"
+                                                   BindableLayout.ItemTemplate="{StaticResource PresetPortChoiceButton}" />
+                            <HorizontalStackLayout Spacing="6" HorizontalOptions="End"
+                                                   BindableLayout.ItemsSource="{Binding TypeChoicesRow3}"
+                                                   BindableLayout.ItemTemplate="{StaticResource PresetPortChoiceButton}" />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <!-- Interleave — OPTIONAL (tap the lit segment to clear =
+                         omitted from the line). 39-tone / Serial only
+                         (ASSUMED — bench item A6d).
+                         ROUND 10 §3: this is the ONE owner-chosen label-ABOVE
+                         row in the app (ledger-recorded). Its five buttons need
+                         the FULL card width — 3+2 at SegmentWidthWide — and a
+                         left label would not leave it. -->
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding ShowInterleave}">
+                        <Label Text="Interleave" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding InterleaveChoicesRow1}"
+                                               BindableLayout.ItemTemplate="{StaticResource PresetChoiceButton}" />
+                        <HorizontalStackLayout Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding InterleaveChoicesRow2}"
+                                               BindableLayout.ItemTemplate="{StaticResource PresetChoiceButton}" />
+                    </VerticalStackLayout>
+
+                    <!-- Port (the data-mode field) — REQUIRED. ROUND 11 §3: the
+                         row label is "Port", because the BUTTONS name the port
+                         and put the signalling behind it ("Remote port (async)"
+                         / "Data port (async)" / "Data port (sync)"), at
+                         SegmentWidthPort, 2+1. Label LEFT, allowance 36:
+                         2×184+6 = 374 ≤ 448−36−6 = 406 (§9 A5). The VM property is
+                         still DataMode* — a display rename never touches an
+                         internal name (invariant 4). -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                        <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Port" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                            <HorizontalStackLayout Spacing="6" HorizontalOptions="End"
+                                                   BindableLayout.ItemsSource="{Binding DataModeChoicesRow1}"
+                                                   BindableLayout.ItemTemplate="{StaticResource PresetPortChoiceButton}" />
+                            <HorizontalStackLayout Spacing="6" HorizontalOptions="End"
+                                                   BindableLayout.ItemsSource="{Binding DataModeChoicesRow2}"
+                                                   BindableLayout.ItemTemplate="{StaticResource PresetPortChoiceButton}" />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    </VerticalStackLayout>
+                    <!-- ==== end of the SSB / ALE field stack ============== -->
+
+                    <!-- ==== THE HOP FIELD STACK (F11) ====================
+                         A `HOP>` preset is name / signalling / port / baud and
+                         nothing else, and its mode phrase is TWO INDEPENDENT
+                         WORDS on the wire — P5b applied `SYNC DATA` on its own
+                         and `ASYNC REMOTE` on its own — so it is two rows here
+                         rather than the SSB card's one welded phrase. Both are
+                         REQUIRED: the line has no form without them. -->
+                    <VerticalStackLayout Spacing="10" IsVisible="{Binding IsHopScope}">
+
+                        <!-- Signalling — REQUIRED. Two short words, so the
+                             narrower segment template. -->
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                            <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Signalling" />
+                            <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                                   BindableLayout.ItemsSource="{Binding SyncChoices}"
+                                                   BindableLayout.ItemTemplate="{StaticResource PresetChoiceButton}" />
+                        </Grid>
+
+                        <!-- Port — REQUIRED. The full port words, so the
+                             PresetPortChoiceButton width the SSB Port row uses. -->
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                            <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Port" />
+                            <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                                   BindableLayout.ItemsSource="{Binding PortChoices}"
+                                                   BindableLayout.ItemTemplate="{StaticResource PresetPortChoiceButton}" />
+                        </Grid>
+
+                    </VerticalStackLayout>
+                    <!-- ==== end of the HOP field stack ==================== -->
+
+                    <!-- Baud — the ◀ display ▶ wheel over the DISCRETE HELP
+                         set (75/150/300/600/1200/2400/4800/Voice, wrapping).
+                         SHARED between the two shapes (F11): under a confirmed
+                         HOP the same wheel offers the MEASURED hop set
+                         {75, 150, 300} instead — P5c swept nine other values
+                         and every one was SILENTLY ignored, so offering them
+                         would be offering a lie.
+                         The display carries the operator's PENDING SELECTION
+                         in display words, fixed width (rule K), "—" until
+                         prefilled or spun. Chevrons are chevron-class 44 dp. -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                        <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Baud" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                            <Button Text="◀" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding BaudDownCommand}"
+                                    SemanticProperties.Description="Previous baud" />
+                            <Border Style="{StaticResource ValueDisplay}" WidthRequest="72"
+                                    SemanticProperties.Description="Baud to be stored">
+                                <Label Style="{StaticResource ValueDisplayText}"
+                                       Text="{Binding BaudText}" />
+                            </Border>
+                            <Button Text="▶" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding BaudUpCommand}"
+                                    SemanticProperties.Description="Next baud" />
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <!-- MARK/SPACE: FSK types only (type-switched). A pair or
+                         nothing; units PROVISIONAL. -->
+                    <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="6"
+                          IsVisible="{Binding ShowMarkSpace}">
+                        <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Mark" />
+                        <Entry Grid.Column="1" Keyboard="Numeric"
+                               Placeholder="digits (provisional)"
+                               Text="{Binding MarkInput, Mode=TwoWay}"
+                               SemanticProperties.Description="FSK mark frequency — provisional, units unverified" />
+                        <Label Grid.Column="2" VerticalOptions="Center" Style="{StaticResource Caption}" Text="Space" />
+                        <Entry Grid.Column="3" Keyboard="Numeric"
+                               Placeholder="digits (provisional)"
+                               Text="{Binding SpaceInput, Mode=TwoWay}"
+                               SemanticProperties.Description="FSK space frequency — provisional, units unverified" />
+                    </Grid>
+
+                    <!-- Preset state — OPTIONAL (tap the lit segment to
+                         clear). Never prefills: no capture has ever echoed a
+                         preset's state. ROUND 10 §3: label LEFT, one row of
+                         two at SegmentWidthWide. -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                        <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Preset state" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding StateChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource PresetChoiceButton}" />
+                    </Grid>
+
+                    <!-- ONE Store — the whole preset as one line. The echoed
+                         listing line UPSERTS the mirror, but round 11 §6
+                         retired "the echo IS the read-back" for this card: it
+                         cannot show a silently clamped baud and never carries
+                         the enabled state, so the press also re-reads the
+                         preset targeted (plus the presence op when the line
+                         carried EN/DIS). Round 10 §3: ACTION class —
+                         DE-PINNED, natural width. -->
+                    <Button Text="Store" Style="{StaticResource Segment}"
+                            HorizontalOptions="End"
+                            Command="{Binding StoreCommand}"
+                            SemanticProperties.Description="Program this preset on the radio" />
+
+                    <Label Style="{StaticResource ErrorCaption}" Text="{Binding InputError}"
+                           IsVisible="{Binding HasInputError}" />
+                </VerticalStackLayout>
+
+                <!-- ========= Preset list tab ========= -->
+                <VerticalStackLayout Spacing="6" IsVisible="False">
+                    <VerticalStackLayout.Triggers>
+                        <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsListTabOpen}" Value="True">
+                            <Setter Property="IsVisible" Value="True" />
+                        </DataTrigger>
+                    </VerticalStackLayout.Triggers>
+
+                    <!-- ROUND 11 §6: the STATE column. It is the ONLY cell here
+                         that does not come from the preset's line — the line
+                         never carries the enabled state. It comes from the
+                         PRESENCE operation this tab's landing runs behind its
+                         field batch, and it renders three states: "Enabled",
+                         "Disabled", and "—" while no presence read has
+                         completed or one is in flight. -->
+                    <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
+                        <Label Text="#" Style="{StaticResource CellHeading}"
+                               WidthRequest="{StaticResource PresetWidthNumber}" />
+                        <Label Grid.Column="1" Text="Name" Style="{StaticResource CellHeading}"
+                               WidthRequest="{StaticResource PresetWidthName}" />
+                        <Label Grid.Column="2" Text="State" Style="{StaticResource CellHeading}"
+                               WidthRequest="{StaticResource PresetWidthField}" />
+                        <Label Grid.Column="3" Text="Parameters" Style="{StaticResource CellHeading}" />
+                    </Grid>
+
+                    <VerticalStackLayout Spacing="6"
+                                         BindableLayout.ItemsSource="{Binding Rows}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ModemPresetRow">
+                                <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
+                                    <Label Text="{Binding NumberText}" Style="{StaticResource CellValue}"
+                                           WidthRequest="{StaticResource PresetWidthNumber}"
+                                           SemanticProperties.Description="Preset number" />
+                                    <Label Grid.Column="1" Text="{Binding NameText}" Style="{StaticResource CellValue}"
+                                           WidthRequest="{StaticResource PresetWidthName}"
+                                           SemanticProperties.Description="Stored preset name" />
+                                    <Label Grid.Column="2" Text="{Binding PresenceText}" Style="{StaticResource CellValue}"
+                                           WidthRequest="{StaticResource PresetWidthField}"
+                                           SemanticProperties.Description="Preset enabled state" />
+                                    <Label Grid.Column="3" Text="{Binding ParametersText}" Style="{StaticResource CellValue}"
+                                           LineBreakMode="CharacterWrap"
+                                           SemanticProperties.Description="Stored preset parameters, verbatim" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <Label Style="{StaticResource Caption}"
+                           IsVisible="{Binding HasNoPresets}"
+                           Text="No presets reported yet." />
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

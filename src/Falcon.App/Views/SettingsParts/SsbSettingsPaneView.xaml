@@ -1,0 +1,670 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    SSB settings pane (Mode settings page). GUI rejigger Wave 2 — the round-8
+    SSB list minus what the Operate SSB pane owns: Audio/RX (FM group, CW
+    offset, AVS, RF gain, preamp), TX/antenna (keyline, antenna, internal
+    coupler, 1 kW PA, retransmit, PREPOST×3), the RWAS group and BEEP.
+
+    UI tweaks round 2: rows use the ALE idiom (G1 — name label left, control
+    group right-aligned in a Grid "*,Auto"); labels are full human words (F2);
+    button texts are title-case present-tense (H1 — the VM choice Values);
+    RF gain and RWAS key are number entries with an Option-B confirmed
+    DISPLAY left of the Entry+Set action (I1/I2 — the Entry is app-side
+    input the radio never writes; RWAS key is write-only so its display
+    stays "—"); an odd AVS report ("NOT INSTALLED") renders on the same
+    display element as "Not installed" (E2/H2).
+
+    BindingContext wiring: the HOST page (ModeSettingsPage) authored this
+    ContentView's own IsVisible binding against its ModeViewModel, so the
+    ContentView keeps that INHERITED context; the INNER root (Root) gets the
+    SsbSettingsViewModel from DI in code-behind. Controls render one-way from
+    the CONFIRMED mirror (no optimism); the FM group greys outside FM and CW
+    offset greys outside CW (the modulation-visibility matrix, in the VM). No
+    control is channel-00-gated — these program nothing per-channel.
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             xmlns:behaviors="clr-namespace:Falcon.App.Behaviors"
+             x:Class="Falcon.App.Views.SettingsParts.SsbSettingsPaneView">
+
+    <ContentView.Resources>
+        <!-- Round 7 (DA, owner): the channel-row column widths, tightened so
+             all SEVEN columns fit ONE line on the bench phone (~446 dp of
+             card content): 28+104+104+44+40+48+40 + 6×6 = 444. Owner knob:
+             widths first, font only if the bench look disagrees. -->
+        <x:Double x:Key="RowWidthCh">28</x:Double>
+        <x:Double x:Key="RowWidthFreq">104</x:Double>
+        <x:Double x:Key="RowWidthMode">44</x:Double>
+        <x:Double x:Key="RowWidthBw">40</x:Double>
+        <x:Double x:Key="RowWidthAgc">48</x:Double>
+        <x:Double x:Key="RowWidthRxOnly">40</x:Double>
+
+        <!-- One template for every choice row: a highlighted Segment per
+             ChoiceItem (highlight from confirmed IsActive only). -->
+        <DataTemplate x:Key="ChoiceButton" x:DataType="vm:ChoiceItem">
+            <Button Text="{Binding Value}" Style="{StaticResource Segment}"
+                    WidthRequest="{StaticResource SegmentWidth}"
+                    Command="{Binding SelectCommand}"
+                    SemanticProperties.Description="{Binding Value}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding IsActive}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                        <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+        </DataTemplate>
+    </ContentView.Resources>
+
+    <ScrollView x:Name="Root" x:DataType="vm:SsbSettingsViewModel">
+        <VerticalStackLayout Spacing="{OnIdiom Default=10, Phone=8}">
+
+            <!-- ==== Audio / RX ==== -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10" IsEnabled="{Binding AreSettingsEnabled}">
+                    <Label Text="Audio / RX" Style="{StaticResource CardHeading}" />
+
+                    <!-- FM group. CLONE ROUND 12 §9 C4: the IsEnabled
+                         modulation gate is DELETED. It was UI policy inventing
+                         a radio constraint — the r12-p2 probe sent FMSQ_T,
+                         FMTONE and FMDE at a confirmed USB with the modulation
+                         held constant and the radio ACCEPTED all three
+                         (protocol.md, "The FM trio and CWOFF are settable at
+                         USB"). The command bodies lost their matching guard in
+                         the same change; either layer alone still greys. -->
+                    <VerticalStackLayout Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <Label Text="FM squelch type" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                            <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                                   BindableLayout.ItemsSource="{Binding FmSquelchTypeChoices}"
+                                                   BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <Label Text="Tx FM tone" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                            <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                                   BindableLayout.ItemsSource="{Binding FmToneChoices}"
+                                                   BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <Label Text="FM deviation" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                            <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                                   BindableLayout.ItemsSource="{Binding FmDeviationChoices}"
+                                                   BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <!-- CW offset. Round 4 (AG1): the unit moved INTO the row
+                         label, so the trailing "Hz" label beside the choices is
+                         gone. CLONE ROUND 12 §9 C4: the IsEnabled CW gate is
+                         DELETED — CWOFF 1000 was accepted at USB in the same
+                         capture, judged on its own verdict (the FM trio and the
+                         CW offset are independently gated, so a mixed outcome
+                         was representable and this one came out green). -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Text="CW offset (Hz)" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding CwOffsetChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                    </Grid>
+
+                    <!-- AVS — tri-state on the wire: On / Off / NOT INSTALLED.
+                         The odd third value renders on the Option-B display
+                         (radio's wording, our case) with both buttons
+                         un-highlighted (E2/H2). Fixed width (K). -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Text="AVS" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                            <Border Style="{StaticResource ValueDisplay}"
+                                    WidthRequest="{StaticResource ValueWidthXWide}"
+                                    IsVisible="{Binding HasAvsOddValue}"
+                                    SemanticProperties.Description="AVS reported state">
+                                <Label Style="{StaticResource ValueDisplayText}" Text="{Binding AvsOddText}" />
+                            </Border>
+                            <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding AvsChoices}"
+                                                   BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <!-- RF gain (I1): confirmed DISPLAY left of the app-side
+                         Entry + Set action. -->
+                    <!-- Round 10 §3: named value + entry widths. The entry width
+                         sits on the ENTRY, not in the ColumnDefinitions string —
+                         a StaticResource cannot live inside a
+                         GridLengthCollection (§4's constraint), so the column is
+                         Auto and the entry sizes it. -->
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                        <Label Text="RF gain" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <Border Grid.Column="1" Style="{StaticResource ValueDisplay}"
+                                WidthRequest="{StaticResource ValueWidthNarrow}"
+                                SemanticProperties.Description="RF gain reported value">
+                            <Label Style="{StaticResource ValueDisplayText}"
+                                   Text="{Binding RfGainText}" />
+                        </Border>
+                        <Entry Grid.Column="2" Keyboard="Numeric" Placeholder="0-100"
+                               WidthRequest="{StaticResource NumericEntryWidth}"
+                               Text="{Binding RfGainInput, Mode=TwoWay}"
+                               SemanticProperties.Description="RF gain entry">
+                            <Entry.Behaviors>
+                                <behaviors:SelectAllOnFocusBehavior />
+                            </Entry.Behaviors>
+                        </Entry>
+                        <Button Grid.Column="3" Text="Set" Style="{StaticResource Segment}"
+                                WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding ApplyRfGainCommand}"
+                                SemanticProperties.Description="Set RF gain" />
+                    </Grid>
+
+                    <!-- Preamp — no captured answer shape: sends, never highlights. -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Text="Preamp" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding PreampChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== TX / antenna ==== -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10" IsEnabled="{Binding AreSettingsEnabled}">
+                    <Label Text="TX / antenna" Style="{StaticResource CardHeading}" />
+
+                    <!-- Keyline (K ON|OFF) is DEFERRED this wave: the Core
+                         GuiOutScopeGuardTests guard forbids the keying builder
+                         name in app-layer source until its keying UI lands,
+                         and amending that guard is a Core-test edit outside
+                         this wave's ownership. See SsbSurface / report. -->
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Text="Antenna" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding AntennaChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                    </Grid>
+
+                    <!-- Internal coupler — no captured answer shape. -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Text="Internal coupler" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding InternalCouplerChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                    </Grid>
+
+                    <!-- 1 kW PA — no captured answer shape. -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Text="1 kW PA" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding OneKilowattChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Text="Retransmit" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding RetransmitChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                    </Grid>
+
+                    <!-- PREPOST filter / rxantenna / scan. -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Text="Pre/post filter" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding PrePostFilterChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Text="Pre/post RX antenna" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding PrePostRxAntennaChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Text="Pre/post scan rate" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding PrePostScanChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== RWAS group ==== -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10" IsEnabled="{Binding AreSettingsEnabled}">
+                    <Label Text="RWAS" Style="{StaticResource CardHeading}" />
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Text="RWAS" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding RwasChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                    </Grid>
+
+                    <!-- Force wakeup — asymmetric write-only: sends, never highlights. -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Text="Force wakeup" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding ForceWakeupChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                    </Grid>
+
+                    <!-- RWAS key (I2) — write-only (no read-back): the
+                         confirmed DISPLAY honestly stays "—"; the Entry is
+                         app-side input, sent only by Set. -->
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                        <Label Text="RWAS key" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <Border Grid.Column="1" Style="{StaticResource ValueDisplay}"
+                                WidthRequest="{StaticResource ValueWidthNarrow}"
+                                SemanticProperties.Description="RWAS key (not readable from the radio)">
+                            <Label Style="{StaticResource ValueDisplayText}" Text="—" />
+                        </Border>
+                        <Entry Grid.Column="2" Keyboard="Numeric" Placeholder="0-99"
+                               WidthRequest="{StaticResource NumericEntryWidth}"
+                               Text="{Binding RwasKeyInput, Mode=TwoWay}"
+                               SemanticProperties.Description="RWAS key entry">
+                            <Entry.Behaviors>
+                                <behaviors:SelectAllOnFocusBehavior />
+                            </Entry.Behaviors>
+                        </Entry>
+                        <Button Grid.Column="3" Text="Set" Style="{StaticResource Segment}"
+                                WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding ApplyRwasKeyCommand}"
+                                SemanticProperties.Description="Set RWAS key" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Text="Unkey mask" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding UnkeyMaskChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== Device ==== -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10" IsEnabled="{Binding AreSettingsEnabled}">
+                    <Label Text="Device" Style="{StaticResource CardHeading}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <Label Text="Beep" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               BindableLayout.ItemsSource="{Binding BeepChoices}"
+                                               BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Numeric-entry validation note (RF gain / RWAS key). -->
+            <Label Style="{StaticResource ErrorCaption}" Text="{Binding InputError}"
+                   IsVisible="{Binding HasInputError}" />
+
+            <!-- ============ Channels (round 4 AK1; round 5 BF) ============
+                 ROUND 5 (BF1, owner ruling): the card moved from the TOP of
+                 the pane to the BOTTOM, and the pane's settings Refresh sits
+                 BELOW it, as the pane's last element. The card is the tallest
+                 thing here by a long way — the hundred-row list alone is
+                 420 dp — so leading with it buried the ordinary settings rows
+                 under a scroll.
+
+                 Its own VM (SsbChannelEditorViewModel, set on this Border in
+                 code-behind — the ConsoleSection house pattern), because it
+                 owns a session channel cache the settings VM has no business
+                 holding.
+
+                 Two full-width sub-tabs, CARD-level so they live INSIDE the
+                 card under the heading (T3, the HOP net editor's shape):
+                   "Channel programming"  LEFT, DEFAULT — picker 00-99, ONE
+                                          read-back row in the channel-list
+                                          style, ONE set of edit controls for
+                                          the stored six, Store.
+                   "Channel list"         RIGHT — all 100 channels, READ-ONLY,
+                                          headed cells, filled lazily as rows
+                                          come into view (one DI n n each, at
+                                          most once per session), and the
+                                          "Refresh channels" button, which
+                                          lives here and nowhere else (BF1).
+
+                 Constitution: the read-back row renders only from DI lines
+                 ("—" until then, fixed widths — K) and the picker never sends
+                 CH n. Round 5's K5 carve-out lets the EDIT buffers initialize
+                 from those same confirmed reports — a programming-surface
+                 exception with a dirty guard, not a general licence: a buffer
+                 the operator has touched is never overwritten by a report.
+                 Store is the sanctioned bypass of the Operate pane's CH-00
+                 policy lock (R4-Q3), and it restores the operator's channel
+                 when it is done. -->
+            <Border x:Name="ChannelsCard" Style="{StaticResource Card}"
+                    x:DataType="vm:SsbChannelEditorViewModel">
+                <VerticalStackLayout Spacing="10">
+
+                    <Label Text="Channels" Style="{StaticResource CardHeading}" />
+
+                    <Label Style="{StaticResource Caption}" Text="{Binding DisabledReason}"
+                           IsVisible="{Binding HasDisabledReason}" />
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                        <Button Text="Channel programming" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                                Command="{Binding OpenProgrammingTabCommand}"
+                                SemanticProperties.Description="Channel programming tab (picker, read-back and Store)">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsListTabOpen}" Value="False">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Grid.Column="1" Text="Channel list" Style="{StaticResource Segment}" HorizontalOptions="Fill"
+                                Command="{Binding OpenListTabCommand}"
+                                SemanticProperties.Description="Channel list tab (all 100 channels, read-only)">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsListTabOpen}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </Grid>
+
+                    <VerticalStackLayout Spacing="10" IsEnabled="{Binding AreControlsEnabled}">
+
+                        <!-- ========= Channel programming tab ========= -->
+                        <VerticalStackLayout Spacing="10" IsVisible="True">
+                            <VerticalStackLayout.Triggers>
+                                <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsListTabOpen}" Value="True">
+                                    <Setter Property="IsVisible" Value="False" />
+                                </DataTrigger>
+                            </VerticalStackLayout.Triggers>
+
+                            <!-- Picker: two per-digit spinners over 00-99,
+                                 wrapping (the Operate channel card's F7/F7a
+                                 shape). App-side view state — never CH n.
+                                 Round 5 (BF3): a landing sends a FRESH
+                                 read-only DI n n EVERY time, not once per
+                                 session — this is a programming surface and a
+                                 cached record can be older than the last write
+                                 from any source. The spinners stay 44 dp wide:
+                                 the BA narrowing is the Operate pane's
+                                 FREQUENCY digit strips only. -->
+                            <!-- ROUND 6 (CH, owner): the read-back row sits
+                                 BESIDE the picker, not below it — spinners
+                                 ~98 dp + the widest row line ~316 dp + spacing
+                                 stays inside the 486-dp bench phone. The row
+                                 keeps the round-5 BF2 contract: the SAME
+                                 SsbChannelRow projection the list tab renders,
+                                 now in the CG two-line shape — frequencies
+                                 (MHz) on top, mode/BW/AGC/Rx-only beneath,
+                                 every cell a FIXED width. DI lines only, "—"
+                                 until one arrives. -->
+                            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10">
+                                <VerticalStackLayout Spacing="0">
+                                    <Button Text="▲" FontSize="10" Padding="0"
+                                            WidthRequest="44" HeightRequest="44"
+                                            Command="{Binding TensUpCommand}"
+                                            SemanticProperties.Description="Next channel tens digit (view only)" />
+                                    <Label Text="{Binding PickedTensText}" FontSize="30"
+                                           FontAttributes="Bold" FontFamily="Consolas"
+                                           WidthRequest="44" HorizontalTextAlignment="Center" />
+                                    <Button Text="▼" FontSize="10" Padding="0"
+                                            WidthRequest="44" HeightRequest="44"
+                                            Command="{Binding TensDownCommand}"
+                                            SemanticProperties.Description="Previous channel tens digit (view only)" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="1" Spacing="0">
+                                    <Button Text="▲" FontSize="10" Padding="0"
+                                            WidthRequest="44" HeightRequest="44"
+                                            Command="{Binding UnitsUpCommand}"
+                                            SemanticProperties.Description="Next channel units digit (view only)" />
+                                    <Label Text="{Binding PickedUnitsText}" FontSize="30"
+                                           FontAttributes="Bold" FontFamily="Consolas"
+                                           WidthRequest="44" HorizontalTextAlignment="Center" />
+                                    <Button Text="▼" FontSize="10" Padding="0"
+                                            WidthRequest="44" HeightRequest="44"
+                                            Command="{Binding UnitsDownCommand}"
+                                            SemanticProperties.Description="Previous channel units digit (view only)" />
+                                </VerticalStackLayout>
+
+                                <!-- Round 7 (DA): TWO lines kept here, but
+                                     every item now sits under its own
+                                     heading, and AGC/Rx-only are bare values
+                                     (full-word AGC) — the captions live in
+                                     the headings.
+                                     Round 8 (EC, owner): the block CENTERS
+                                     between the picker and the frame's right
+                                     edge; every cell keeps its FIXED
+                                     RowWidth* key (sized to the widest value
+                                     — "29.999 999", "Slow"/"Data"), so the
+                                     block never resizes on a value change. -->
+                                <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center"
+                                                     HorizontalOptions="Center">
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6">
+                                        <Label Text="CH" Style="{StaticResource CellHeading}"
+                                               WidthRequest="{StaticResource RowWidthCh}" />
+                                        <Label Grid.Column="1" Text="Rx (MHz)" Style="{StaticResource CellHeading}"
+                                               WidthRequest="{StaticResource RowWidthFreq}" />
+                                        <Label Grid.Column="2" Text="Tx (MHz)" Style="{StaticResource CellHeading}"
+                                               WidthRequest="{StaticResource RowWidthFreq}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6">
+                                        <Label Text="{Binding ReadBackRow.NumberText}" Style="{StaticResource CellValue}"
+                                               WidthRequest="{StaticResource RowWidthCh}"
+                                               SemanticProperties.Description="Picked channel number" />
+                                        <Label Grid.Column="1" Text="{Binding ReadBackRow.RxFrequencyText}" Style="{StaticResource CellValue}"
+                                               WidthRequest="{StaticResource RowWidthFreq}"
+                                               SemanticProperties.Description="Reported receive frequency, MHz" />
+                                        <Label Grid.Column="2" Text="{Binding ReadBackRow.TxFrequencyText}" Style="{StaticResource CellValue}"
+                                               WidthRequest="{StaticResource RowWidthFreq}"
+                                               SemanticProperties.Description="Reported transmit frequency, MHz" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="6" Margin="0,4,0,0">
+                                        <Label Text="Mode" Style="{StaticResource CellHeading}"
+                                               WidthRequest="{StaticResource RowWidthMode}" />
+                                        <Label Grid.Column="1" Text="BW" Style="{StaticResource CellHeading}"
+                                               WidthRequest="{StaticResource RowWidthBw}" />
+                                        <Label Grid.Column="2" Text="AGC" Style="{StaticResource CellHeading}"
+                                               WidthRequest="{StaticResource RowWidthAgc}" />
+                                        <Label Grid.Column="3" Text="Rx only" Style="{StaticResource CellHeading}"
+                                               WidthRequest="{StaticResource RowWidthRxOnly}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="6">
+                                        <Label Text="{Binding ReadBackRow.ModeText}" Style="{StaticResource CellValue}"
+                                               WidthRequest="{StaticResource RowWidthMode}"
+                                               SemanticProperties.Description="Reported modulation" />
+                                        <Label Grid.Column="1" Text="{Binding ReadBackRow.BandwidthText}" Style="{StaticResource CellValue}"
+                                               WidthRequest="{StaticResource RowWidthBw}"
+                                               SemanticProperties.Description="Reported bandwidth" />
+                                        <Label Grid.Column="2" Text="{Binding ReadBackRow.AgcWordText}" Style="{StaticResource CellValue}"
+                                               WidthRequest="{StaticResource RowWidthAgc}"
+                                               SemanticProperties.Description="Reported AGC" />
+                                        <Label Grid.Column="3" Text="{Binding ReadBackRow.RxOnlyText}" Style="{StaticResource CellValue}"
+                                               WidthRequest="{StaticResource RowWidthRxOnly}"
+                                               SemanticProperties.Description="Reported receive-only flag" />
+                                    </Grid>
+                                </VerticalStackLayout>
+                            </Grid>
+
+                            <!-- ONE set of edit controls. Frequencies are
+                                 validated ENTRIES in kHz (AK1a): a programming
+                                 surface, unlike the Operate pane's
+                                 chevron-only VFO.
+                                 Round 5 (K5 carve-out): these buffers PREFILL
+                                 from the picked channel's confirmed report —
+                                 a populate gesture (tab landing, picker spin,
+                                 Refresh) resets them to the reported values,
+                                 and a later report fills only what the
+                                 operator has not modified since. The AGC
+                                 segment prefill is PROVISIONAL (the dump's
+                                 abbreviations are only partly captured); an
+                                 unmapped token leaves it unselected, which
+                                 blocks Store until the operator picks. -->
+                            <!-- Round 6 (CH): entries are MHz; blank Tx =
+                                 same as Rx. Round 8 (EB, owner): the
+                                 placeholders are plain HINTS — the picked
+                                 channel's reported frequencies already render
+                                 in the read-back row above, and the round-7
+                                 value-echo showed them twice. The SEND-TIME
+                                 rule is unchanged: empty Rx falls back to the
+                                 reported value at Store; blank Tx = same as
+                                 Rx always. -->
+                            <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="6">
+                                <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Rx (MHz)" />
+                                <Entry Grid.Column="1" Keyboard="Numeric"
+                                       Placeholder="MHz, e.g. 14.313 500"
+                                       Text="{Binding RxFrequencyInput, Mode=TwoWay}"
+                                       SemanticProperties.Description="Receive frequency entry, MHz — empty uses the reported value" />
+                                <Label Grid.Column="2" VerticalOptions="Center" Style="{StaticResource Caption}" Text="Tx (MHz)" />
+                                <Entry Grid.Column="3" Keyboard="Numeric"
+                                       Placeholder="blank = same as Rx"
+                                       Text="{Binding TxFrequencyInput, Mode=TwoWay}"
+                                       SemanticProperties.Description="Transmit frequency entry, MHz — blank means same as receive" />
+                            </Grid>
+
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Modulation" />
+                                <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                                       BindableLayout.ItemsSource="{Binding ModulationChoices}"
+                                                       BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Bandwidth" />
+                                <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                                       BindableLayout.ItemsSource="{Binding BandwidthChoices}"
+                                                       BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="AGC" />
+                                <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                                       BindableLayout.ItemsSource="{Binding AgcChoices}"
+                                                       BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                            </Grid>
+                            <!-- Round 6 (CF, owner): Receive-only right-aligns
+                                 like its sibling rows and Store gets its OWN
+                                 line, right-aligned, instead of crowding the
+                                 last choice row. -->
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                <Label VerticalOptions="Center" Style="{StaticResource Caption}" Text="Receive only" />
+                                <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                                       BindableLayout.ItemsSource="{Binding RxOnlyChoices}"
+                                                       BindableLayout.ItemTemplate="{StaticResource ChoiceButton}" />
+                            </Grid>
+                            <!-- Round 10 §3: ACTION class — DE-PINNED, natural. -->
+                            <Button Text="Store" Style="{StaticResource Segment}"
+                                    HorizontalOptions="End"
+                                    Command="{Binding StoreCommand}"
+                                    SemanticProperties.Description="Program the picked channel" />
+
+                            <Label Style="{StaticResource Caption}" Text="{Binding StoreDisabledReason}"
+                                   IsVisible="{Binding HasStoreDisabledReason}" />
+                            <Label Style="{StaticResource ErrorCaption}" Text="{Binding InputError}"
+                                   IsVisible="{Binding HasInputError}" />
+                        </VerticalStackLayout>
+
+                        <!-- ============= Channel list tab ============= -->
+                        <!-- Headed cells in the shared round-4 K1 vocabulary
+                             (CellHeading / CellValue + the CellWidth* keys in
+                             App.xaml), headings carried ONCE above the table.
+                             A CollectionView, not a BindableLayout: with 100
+                             rows the virtualization is what keeps the lazy
+                             per-row DI honest — only the rows actually shown
+                             are ever asked for. Its Scrolled/Loaded handlers
+                             call the VM's visible-range API. No controls. -->
+                        <VerticalStackLayout Spacing="6" IsVisible="False">
+                            <VerticalStackLayout.Triggers>
+                                <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding IsListTabOpen}" Value="True">
+                                    <Setter Property="IsVisible" Value="True" />
+                                </DataTrigger>
+                            </VerticalStackLayout.Triggers>
+
+                            <!-- Round 7 (DA, owner): ONE line per row, SEVEN
+                                 headed columns — the captions live up here,
+                                 the cells are bare values, AGC as the full
+                                 word. Widths are the tightened RowWidth*
+                                 keys (fit-by-widths was the owner's first
+                                 knob; the phone look verifies). -->
+                            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="6">
+                                <Label Text="CH" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource RowWidthCh}" />
+                                <Label Grid.Column="1" Text="Rx (MHz)" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource RowWidthFreq}" />
+                                <Label Grid.Column="2" Text="Tx (MHz)" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource RowWidthFreq}" />
+                                <Label Grid.Column="3" Text="Mode" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource RowWidthMode}" />
+                                <Label Grid.Column="4" Text="BW" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource RowWidthBw}" />
+                                <Label Grid.Column="5" Text="AGC" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource RowWidthAgc}" />
+                                <Label Grid.Column="6" Text="Rx only" Style="{StaticResource CellHeading}"
+                                       WidthRequest="{StaticResource RowWidthRxOnly}" />
+                            </Grid>
+
+                            <CollectionView x:Name="ChannelListView"
+                                            ItemsSource="{Binding Rows}"
+                                            HeightRequest="{OnIdiom Default=420, Phone=360}"
+                                            Scrolled="OnChannelListScrolled"
+                                            Loaded="OnChannelListLoaded"
+                                            SemanticProperties.Description="Stored channels 00 to 99, read-only">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SsbChannelRow">
+                                        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="6"
+                                              Padding="0,3">
+                                            <Label Text="{Binding NumberText}" Style="{StaticResource CellValue}"
+                                                   WidthRequest="{StaticResource RowWidthCh}"
+                                                   SemanticProperties.Description="Channel number" />
+                                            <Label Grid.Column="1" Text="{Binding RxFrequencyText}" Style="{StaticResource CellValue}"
+                                                   WidthRequest="{StaticResource RowWidthFreq}"
+                                                   SemanticProperties.Description="Reported receive frequency, MHz" />
+                                            <Label Grid.Column="2" Text="{Binding TxFrequencyText}" Style="{StaticResource CellValue}"
+                                                   WidthRequest="{StaticResource RowWidthFreq}"
+                                                   SemanticProperties.Description="Reported transmit frequency, MHz" />
+                                            <Label Grid.Column="3" Text="{Binding ModeText}" Style="{StaticResource CellValue}"
+                                                   WidthRequest="{StaticResource RowWidthMode}"
+                                                   SemanticProperties.Description="Reported modulation" />
+                                            <Label Grid.Column="4" Text="{Binding BandwidthText}" Style="{StaticResource CellValue}"
+                                                   WidthRequest="{StaticResource RowWidthBw}"
+                                                   SemanticProperties.Description="Reported bandwidth" />
+                                            <Label Grid.Column="5" Text="{Binding AgcWordText}" Style="{StaticResource CellValue}"
+                                                   WidthRequest="{StaticResource RowWidthAgc}"
+                                                   SemanticProperties.Description="Reported AGC" />
+                                            <Label Grid.Column="6" Text="{Binding RxOnlyText}" Style="{StaticResource CellValue}"
+                                                   WidthRequest="{StaticResource RowWidthRxOnly}"
+                                                   SemanticProperties.Description="Reported receive-only flag" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+
+                            <!-- Refresh for the channel data only: clears what
+                                 the radio has told us this session and re-reads
+                                 the picked channel plus the rows on screen
+                                 (R4-Q2). ACTION-class, natural width.
+                                 Round 5 (BF1): it lives INSIDE the Channel list
+                                 tab — its only home. It is the LIST's read
+                                 control; on the programming tab the picker
+                                 already re-reads on every spin, so a second
+                                 "read the channels" button there was two
+                                 answers to one question. -->
+                            <Button Text="Refresh channels" Style="{StaticResource Segment}"
+                                    HorizontalOptions="End"
+                                    Command="{Binding RefreshChannelsCommand}"
+                                    SemanticProperties.Description="Clear and re-read the stored channel data" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Manual refresh (round-3 Y1/Y2): re-sends the whole SSB query
+                 set; the lazy first load already ran once this session.
+                 RIGHT-aligned per Y2. Round 4 (AE): ACTION-class — the
+                 SegmentWidth pin was clipping the trailing "h". -->
+            <!-- Round 10 §6: the label names the SCOPE — with the Channels card
+                 above it, a bare "Refresh" no longer reads as pane-scoped.
+                 Behavior untouched: still RefreshSettingsCommand, still the
+                 pane's last element. -->
+            <Button Text="Refresh SSB settings" Style="{StaticResource Segment}"
+                    HorizontalOptions="End"
+                    Command="{Binding RefreshSettingsCommand}"
+                    SemanticProperties.Description="Re-read every SSB setting from the radio" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentView>

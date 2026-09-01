@@ -1,0 +1,353 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+    Stage 8: the app-wide light/dark resource dictionary (plan §3 "light/dark
+    via resource dictionaries"). Every page styles from these resources —
+    no page-local palette forks. Rules:
+
+    - State-chip FILLS (ChipOk/ChipWarn/ChipErr + Accent) are deliberately
+      the SAME dark colors in both themes, always carrying white text: the
+      §3 chips (FAULT, sync states, link banner, fill state) must read
+      identically in light and dark, and a dark fill + white text clears
+      contrast in both.
+    - TEXT accents differ per theme where the light-theme value would sink
+      on a dark background (or vice versa): Warn (#EF8E00 fails on white —
+      darkened for light), Error, Ok, and the TX/RX console badges.
+    - "Gray" is banned in pages: secondary text uses SecondaryText, which
+      keeps contrast in both themes.
+-->
+<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Falcon.App.App">
+    <Application.Resources>
+        <ResourceDictionary>
+
+            <!-- ==== Palette ==== -->
+
+            <!-- Radio-authoritative highlight (active segments, linked banner). -->
+            <Color x:Key="AccentColor">#2E5A88</Color>
+            <Color x:Key="OnAccentColor">White</Color>
+
+            <!-- Neutral surfaces (segments at rest, chips at rest, cards). -->
+            <Color x:Key="SurfaceLight">#E4E7EB</Color>
+            <Color x:Key="SurfaceDark">#3A4048</Color>
+            <Color x:Key="OnSurfaceLight">#1B2A41</Color>
+            <Color x:Key="OnSurfaceDark">#E8EAED</Color>
+            <Color x:Key="CardStrokeLight">#C9CED6</Color>
+            <Color x:Key="CardStrokeDark">#4A5058</Color>
+            <Color x:Key="CardBackgroundLight">#F4F6F8</Color>
+            <Color x:Key="CardBackgroundDark">#23272C</Color>
+
+            <!-- Secondary/caption text (replaces the old hardcoded Gray). -->
+            <Color x:Key="SecondaryTextLight">#5A6472</Color>
+            <Color x:Key="SecondaryTextDark">#9AA3AD</Color>
+
+            <!-- Status text accents, tuned per theme for contrast. -->
+            <Color x:Key="WarnTextLight">#A85F00</Color>
+            <Color x:Key="WarnTextDark">#FFB84D</Color>
+            <Color x:Key="ErrorTextLight">#C62828</Color>
+            <Color x:Key="ErrorTextDark">#EF7B7B</Color>
+            <Color x:Key="OkTextLight">#2E7D32</Color>
+            <Color x:Key="OkTextDark">#7BC67E</Color>
+            <Color x:Key="TxBadgeLight">#2E5A88</Color>
+            <Color x:Key="TxBadgeDark">#8FB4DC</Color>
+
+            <!-- State-chip fills: same in both themes, white text on top. -->
+            <Color x:Key="ChipOkColor">#284D2B</Color>
+            <Color x:Key="ChipWarnColor">#6B5417</Color>
+            <Color x:Key="ChipErrColor">#6B1F1F</Color>
+
+            <!-- Armed-VFO keyboard digit-cursor highlight (background behind the
+                 pointed digit; night-vision green, tunable). Light sits behind
+                 dark digit text, Dark behind light digit text. -->
+            <Color x:Key="EditCursorLight">#5AD469</Color>
+            <Color x:Key="EditCursorDark">#14532D</Color>
+
+            <!-- Round 7 (DB, owner): ONE entry vocabulary. Typed text is
+                 full-contrast OnSurface; a format HINT placeholder is dim.
+                 (Round 8 EA/EB retired the brighter value-backed placeholder
+                 tint — reported values render in ValueDisplay borders or the
+                 read-back row now, never in a placeholder.) The implicit
+                 Entry style below is also the dark-mode fix: without it some
+                 platforms defaulted entry text to dark-on-dark. -->
+            <Color x:Key="HintPlaceholderLight">#9AA6B5</Color>
+            <Color x:Key="HintPlaceholderDark">#6A7480</Color>
+
+            <Style TargetType="Entry">
+                <Setter Property="TextColor"
+                        Value="{AppThemeBinding Light={StaticResource OnSurfaceLight}, Dark={StaticResource OnSurfaceDark}}" />
+                <Setter Property="PlaceholderColor"
+                        Value="{AppThemeBinding Light={StaticResource HintPlaceholderLight}, Dark={StaticResource HintPlaceholderDark}}" />
+            </Style>
+
+            <!-- Indicator dot fills (spine connection dot). -->
+            <Color x:Key="DotIdleColor">#8A9099</Color>
+            <Color x:Key="DotBusyColor">#EF8E00</Color>
+            <Color x:Key="DotOkColor">#2E7D32</Color>
+            <Color x:Key="DotErrColor">#C62828</Color>
+
+            <!-- ==== Shared control vocabulary (plan §3) ==== -->
+
+            <!-- Segmented button: radio-authoritative highlight is applied by
+                 per-button DataTriggers (AccentColor + OnAccentColor);
+                 ≥44dp touch target. -->
+            <Style x:Key="Segment" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OnSurfaceLight}, Dark={StaticResource OnSurfaceDark}}" />
+                <Setter Property="CornerRadius" Value="6" />
+                <Setter Property="MinimumWidthRequest" Value="{OnIdiom Default=64, Phone=52}" />
+                <Setter Property="MinimumHeightRequest" Value="44" />
+                <Setter Property="FontAttributes" Value="Bold" />
+            </Style>
+
+            <!-- CLONE ROUND 12 §6 F7 (owner ruling 2026-08-19): the TITLE-BAR
+                 FLAT button. The About control in Shell.TitleView is NOT a
+                 Segment — a filled, bold, minimum-width chip beside the app
+                 name reads as a control panel. The ruling is "low profile,
+                 like the tab-bar items": transparent, no border, plain text
+                 in the tab items' weight and colour family, NATURAL width.
+
+                 The tab strip itself is Shell-rendered on both heads, so
+                 there is no existing XAML style to reuse or inherit — this
+                 style is the app's statement of what that look is. It sets no
+                 width of any kind ON PURPOSE (the words size the button);
+                 StyleVocabularyGuardTests gates both the setters present and
+                 the width setters absent. -->
+            <Style x:Key="TitleBarFlat" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="BorderColor" Value="Transparent" />
+                <Setter Property="BorderWidth" Value="0" />
+                <Setter Property="CornerRadius" Value="0" />
+                <Setter Property="FontAttributes" Value="None" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OnSurfaceLight}, Dark={StaticResource OnSurfaceDark}}" />
+            </Style>
+
+            <!-- Status chip: state fills applied by DataTriggers. -->
+            <Style x:Key="Chip" TargetType="Border">
+                <Setter Property="StrokeThickness" Value="0" />
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+                <Setter Property="Padding" Value="10,6" />
+                <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+            </Style>
+
+            <!-- Section card (plan §4.6: sections as cards). -->
+            <Style x:Key="Card" TargetType="Border">
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource CardStrokeLight}, Dark={StaticResource CardStrokeDark}}" />
+                <Setter Property="StrokeShape" Value="RoundRectangle 8" />
+                <Setter Property="Padding" Value="{OnIdiom Default=12, Phone=10}" />
+            </Style>
+
+            <!-- Option-B confirmed-value display (UI tweaks round 2, U3): an
+                 INERT accent-tinted element styled like an active state
+                 button — the numeric/odd-case analogue of a highlighted
+                 segment ("our buttons show the radio state"). NON-interactive;
+                 shows the CONFIRMED value, "—" until reported (or for
+                 write-only values), or an odd radio value re-cased to our
+                 convention ("Not installed"). Every use sets a FIXED
+                 WidthRequest sized to its widest possible content (rule K —
+                 no field resizes on its value). -->
+            <Style x:Key="ValueDisplay" TargetType="Border">
+                <Setter Property="StrokeThickness" Value="0" />
+                <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                <Setter Property="StrokeShape" Value="RoundRectangle 6" />
+                <Setter Property="Padding" Value="8,0" />
+                <Setter Property="MinimumHeightRequest" Value="44" />
+            </Style>
+            <!-- UI tweaks round 10 (§3): Consolas moves INTO the style. Most
+                 use sites already set it inline (the reported values are
+                 digit strings that must not reflow between values); the
+                 style is now the single place that says so. The five sites
+                 that lacked the inline copy — the modem displays on the SSB,
+                 ALE and HOP panes, the modem-presets baud display, and the
+                 SSB-settings AVS display — CHANGE APPEARANCE by this, which
+                 is the round's one acknowledged appearance change (plan §3,
+                 named in the P1 gate). The inline copies themselves are
+                 deleted with their files' owners in P2/P3. -->
+            <Style x:Key="ValueDisplayText" TargetType="Label">
+                <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="FontFamily" Value="Consolas" />
+                <Setter Property="HorizontalTextAlignment" Value="Center" />
+                <Setter Property="VerticalOptions" Value="Center" />
+            </Style>
+
+            <!-- Caption vocabulary: secondary text, disabled-with-reason
+                 captions, warnings, inline errors. -->
+            <Style x:Key="Caption" TargetType="Label">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SecondaryTextLight}, Dark={StaticResource SecondaryTextDark}}" />
+            </Style>
+            <Style x:Key="WarnCaption" TargetType="Label" BasedOn="{StaticResource Caption}">
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource WarnTextLight}, Dark={StaticResource WarnTextDark}}" />
+            </Style>
+            <Style x:Key="ErrorCaption" TargetType="Label" BasedOn="{StaticResource Caption}">
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource ErrorTextLight}, Dark={StaticResource ErrorTextDark}}" />
+            </Style>
+            <Style x:Key="SecondaryLabel" TargetType="Label">
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SecondaryTextLight}, Dark={StaticResource SecondaryTextDark}}" />
+            </Style>
+
+            <!-- UI tweaks round 10 (§3): the placeholder line a pane shows
+                 when it has nothing to render yet (the two placeholder
+                 twins). Larger than a Caption because it IS the pane's whole
+                 content, but secondary-colored because it is not data. -->
+            <Style x:Key="EmptyPaneHint" TargetType="Label">
+                <Setter Property="FontSize" Value="18" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource SecondaryTextLight}, Dark={StaticResource SecondaryTextDark}}" />
+            </Style>
+
+            <!-- UI tweaks round 3 (T2): the two heading tiers — card headings
+                 and in-card sub-headings. Applied app-wide; no page-local
+                 heading fonts. -->
+            <Style x:Key="CardHeading" TargetType="Label">
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="FontSize" Value="16" />
+            </Style>
+            <Style x:Key="SubHeading" TargetType="Label">
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="FontSize" Value="13" />
+            </Style>
+            <!-- UI tweaks round 10 (§3): the STATUS tier — a short line that
+                 reports what the radio or the link is doing (spine port /
+                 phase / tune / keyline / thermal chips, the HOP sync chip and
+                 its generating/invalid lines, the shell title, the battery
+                 line, the connection-settings status). Bold at the DEFAULT
+                 size: it is emphasis, not a heading. Warn/error COLORS stay
+                 inline where a state drives them. -->
+            <Style x:Key="StatusText" TargetType="Label">
+                <Setter Property="FontAttributes" Value="Bold" />
+            </Style>
+            <!-- UI tweaks round 3 (N/V1): the shared segment width. Segment-class
+                 buttons set WidthRequest to this (per-panel override allowed where a
+                 panel's row count forces a different value). Chevron-class buttons
+                 (digit/picker chevrons) are NOT segment-class — they stay 44. -->
+            <x:Double x:Key="SegmentWidth">72</x:Double>
+            <!-- UI tweaks round 10 (§3): the two WIDE choice-button widths.
+                 LAYOUT-PROVISIONAL (plan §1): chosen against the stated phone
+                 budget (360 dp phone, card padding 10×2 + page padding ≈
+                 336 dp of content) and pinned ARITHMETICALLY by
+                 StyleVocabularyGuardTests — a MEASURED overflow may adjust a
+                 value, and the budget inequality (never a chosen number) is
+                 what re-evaluates (invariant 8).
+                 Wide 90: ALE Type ×4 (round 15 E-1 added Member —
+                 4 × 90 + 3 × 6 = 378 ≤ 394; it was ×3 = 282);
+                 interleave ×5 (3+2); preset state ×2.
+                 XWide 132: NO CONSUMER since round 11 §3 — the data-mode row
+                 it was cut for became the PORT row and moved to
+                 SegmentWidthPort (the new port words are longer). The key is
+                 kept rather than deleted: round 11's manifests are CLOSED and
+                 do not list it for retirement, so it stays as vocabulary and
+                 is eligible for a later round.
+                 ROUND 11 §3 (P5), LAYOUT-PROVISIONAL on the same terms —
+                 Port: the modem card's PORT row (2+1, label "Port" LEFT,
+                 allowance 36) AND its TYPE row (three rows of two, label
+                 "Type" LEFT, allowance 48). The two rows share ONE width
+                 because they are the same card's two required rows, and the
+                 longest words in each ("Remote port (async)", "FSK narrow")
+                 are what it is sized for. Round 10's type 3+3 at Wide is
+                 replaced.
+
+                 CLONE ROUND 12 §9 A5 — 136 → 184, and the phone budget it was
+                 chosen against is CORRECTED. Owner ruling 2026-08-19: "there
+                 is plenty of room to widen all of the modem type and port type
+                 buttons together. there are only 2 columns used and it's
+                 currently only taking half the screen width." 136 CLIPPED
+                 "Remote port (async)" — the string's glyphs alone measure
+                 133.85 dp (Segoe UI Bold 14 px, GDI+) and left 2.15 dp for
+                 padding that is really 22 — but the 336-dp budget above was
+                 the blocker, not the layout: it assumed a 360-dp phone while
+                 the BENCH phone measures ≈448 dp of content (the AH1 no-clip
+                 figure, ui.md). 184 is sized with deliberate HEADROOM rather
+                 than to the nearest dp, because the Windows metric does not
+                 transfer — the Segment style pins no font family or size, so
+                 Android resolves its own: 184 leaves 162 dp of glyph room
+                 after Windows padding (21% over the measurement) and 152 dp
+                 after Android's wider default button padding (13%). The rows
+                 still fit with room to spare: 2×184+6 = 374 ≤ 448−48−6 = 394
+                 on the tighter (Type) row. Invariant 8 holds — the inequality
+                 re-evaluates in StyleVocabularyGuardTests, never the number. -->
+            <x:Double x:Key="SegmentWidthWide">90</x:Double>
+            <x:Double x:Key="SegmentWidthXWide">132</x:Double>
+            <x:Double x:Key="SegmentWidthPort">184</x:Double>
+
+            <!-- UI tweaks round 10 (§3): the ValueDisplay widths, named. Rule
+                 K says every value display sets a FIXED width sized to its
+                 widest content; these are the four sizes the app actually
+                 uses, so the literals stop being re-derived per site. The
+                 consumer manifest is CLOSED (plan §3); the literal→key swaps
+                 land with each file's owning phase. -->
+            <x:Double x:Key="ValueWidthNarrow">64</x:Double>
+            <x:Double x:Key="ValueWidthStd">72</x:Double>
+            <x:Double x:Key="ValueWidthWide">96</x:Double>
+            <x:Double x:Key="ValueWidthXWide">110</x:Double>
+            <!-- The number-entry column beside a value display (§3). -->
+            <x:Double x:Key="NumericEntryWidth">90</x:Double>
+
+            <!-- ROUND 13 §4 A2 (item 10, owner 2026-08-19): the HOP sync chip
+                 takes a FIXED width sized for its longest message, so the
+                 Send Sync button beside it stops moving as the sync state
+                 changes (rule K — no field resizes on its value). Applied at
+                 the USE SITE on that one Border, deliberately NOT as a setter
+                 on the shared `Chip` style: of the six chips wearing `Chip`,
+                 the spine TUNE chip carries its OWN local width
+                 (TuneStackWidth 150, to align with the Retune button above
+                 it) and the other four — spine keyline, the two ALE chips,
+                 the HOP net-list-invalid badge — size themselves. A width
+                 setter on the style would fit none of them and would silently
+                 pad the four that want none.
+                 Budget (constitution §3.3, arithmetic only — the no-clip
+                 verdict is the T3 Android pass, never desktop measurement):
+                 against the MEASURED 448-dp phone content budget, reserving a
+                 stated 120 dp for Send Sync's natural width plus the row's
+                 12-dp spacing, the ceiling is 448−120−12 = 316. 180 passes
+                 with margin; the INEQUALITY is what re-evaluates, in
+                 StyleVocabularyGuardTests. -->
+            <x:Double x:Key="SyncChipWidth">180</x:Double>
+
+            <!-- UI tweaks round 11 (§5): the ONE width every ◀/▶ WHEEL DISPLAY
+                 on the address-programming card takes — channel group,
+                 associated self and member. They are pending SELECTIONS, not
+                 value displays (the card carries no blue ValueDisplay at all),
+                 so they need a width key of their own rather than borrowing
+                 the ValueWidth family. 96 is the widest of the three literals
+                 the card used before the commonization (72/96/96), so the two
+                 name wheels are unchanged and the group wheel widens. -->
+            <x:Double x:Key="AleWheelValueWidth">96</x:Double>
+
+            <!-- UI tweaks round 4 (AB4/AJ3): headed data cells — a small
+                 heading over a larger fixed-width value. -->
+            <Style x:Key="CellHeading" TargetType="Label" BasedOn="{StaticResource Caption}">
+                <Setter Property="FontSize" Value="11" />
+            </Style>
+            <Style x:Key="CellValue" TargetType="Label">
+                <Setter Property="FontSize" Value="18" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="FontFamily" Value="Consolas" />
+                <Setter Property="LineBreakMode" Value="TailTruncation" />
+            </Style>
+            <x:Double x:Key="CellWidthNet">56</x:Double>
+            <x:Double x:Key="CellWidthId">100</x:Double>
+            <x:Double x:Key="CellWidthType">52</x:Double>
+            <x:Double x:Key="CellWidthValue">150</x:Double>
+            <!-- Round 6 (CG): an MHz frequency cell — "29.999 999" is ten
+                 Consolas-18 glyphs (~100 dp), so the 100-dp Id width would
+                 tail-truncate the Hz digit it exists to show. -->
+            <x:Double x:Key="CellWidthFreq">112</x:Double>
+
+            <!-- UI tweaks round 10 (§3): the SPINNER DIGIT — the big digit a
+                 ▲/▼ (or ◀/▶) pair points at: channel tens/units, the HOP net
+                 number, the ALE channel-group number, the VFO digit cells and
+                 their decimal glyphs. 30 pt is a ledger-recorded exemption
+                 from the type scale (it is a control readout, not text).
+                 WIDTHS stay at the use sites — the digit strips size their
+                 own columns. -->
+            <Style x:Key="SpinnerDigit" TargetType="Label">
+                <Setter Property="FontSize" Value="30" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="FontFamily" Value="Consolas" />
+                <Setter Property="HorizontalTextAlignment" Value="Center" />
+            </Style>
+
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

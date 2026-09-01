@@ -1,0 +1,131 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<!-- Windows + Android only (plan §1). The windows TFM is conditioned on a
+		     Windows host, mirroring SendIt.csproj. -->
+		<TargetFrameworks>net10.0-android</TargetFrameworks>
+		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
+
+		<OutputType>Exe</OutputType>
+		<RootNamespace>Falcon.App</RootNamespace>
+		<UseMaui>true</UseMaui>
+		<SingleProject>true</SingleProject>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+
+		<!-- Display name -->
+		<ApplicationTitle>FalconRC</ApplicationTitle>
+		<!-- The Windows exe is FalconRC.exe (owner ask 2026-08-24); the Android
+		     package id and the shared assembly names are untouched. -->
+		<AssemblyName Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">FalconRC</AssemblyName>
+
+		<!-- App Identifier -->
+		<!-- Renamed from com.camhosken.falconradiocontroller (owner ask 2026-08-31):
+		     the APK file name derives from this id, and the owner wants the
+		     personal name out of it. NEW APP IDENTITY on Android — the old
+		     package must be uninstalled; there is no update path across ids. -->
+		<ApplicationId>com.falconrc.app</ApplicationId>
+
+		<!-- Versions -->
+		<ApplicationDisplayVersion>0.1</ApplicationDisplayVersion>
+		<ApplicationVersion>1</ApplicationVersion>
+
+		<!-- Unpackaged Windows exe (owner decision, plan §7 item 6 — SendIt pattern). -->
+		<WindowsPackageType>None</WindowsPackageType>
+
+		<!-- Android minSdk 24 (SendIt pattern; USB serial library needs 23+). -->
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+
+		<!-- Publish-folder diet (owner ask 2026-08-31): the app's own UI is
+		     English-only, so ship only MAUI's English control strings —
+		     without this, publish grows ~119 per-language satellite folders.
+		     Symbols likewise stay out of the publish folder (crash traces
+		     lose line numbers there; bin\ still has the pdbs). -->
+		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+		<CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- App Icon — the old WinForms app's Icon1.ico front-panel photo,
+		     converted to PNG (Resizetizer takes SVG/PNG, not ICO). -->
+		<MauiIcon Include="Resources\AppIcon\appicon.png" />
+
+		<!-- CLONE ROUND 12 §6 F7: the SAME artwork again, as a MauiImage. A
+		     MauiIcon produces platform app-icon assets only and is NOT
+		     addressable from an in-page <Image Source>, so the title bar
+		     cannot show the app icon without its own image item — and this is
+		     the project's first MauiImage, hence the explicit declaration
+		     rather than the SDK's implicit Resources\Images glob. -->
+		<MauiImage Include="Resources\Images\falconrc_icon.png" />
+
+		<!-- ROUND 13 C1 (backlog item 12): the old WinForms About box's photo,
+		     extracted from Falcon.Gui/About.resx (logoPictureBox.Image) and
+		     converted to PNG. Declared explicitly for the same reason as the
+		     icon above — this project has no implicit Resources\Images glob. -->
+		<MauiImage Include="Resources\Images\falconrc_about.png" />
+
+		<!-- Splash Screen -->
+		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#1B2A41" BaseSize="128,128" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+		<!-- MVVM source generators: [ObservableProperty], [RelayCommand], ObservableObject -->
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+		<!-- D13 (plan-clone-write-structural, owner 2026-08-30): the SAVE-LOCATION
+		     PICKER. MAUI ships FilePicker (open) but no save picker, and the clone
+		     card needs one so the operator chooses where a read goes instead of the
+		     app choosing app-private storage they cannot browse. `FileSaver` is the
+		     toolkit's only piece this app uses.
+
+		     VERSION 13.0.0, NOT the newest. The toolkit's later releases raise
+		     their floor on Microsoft.Maui.Controls faster than this repo's pinned
+		     `$(MauiVersion)` moves (14.0.0 wants >= 10.0.30, 15.0.1 wants
+		     >= 10.0.90; this SDK's MauiVersion is 10.0.20), and a restore that
+		     picks one of those fails NU1605 as a package downgrade. 13.0.0 is the
+		     newest release whose floor (>= 10.0.10) this app's MAUI already meets;
+		     bumping the whole app's MAUI version to reach a newer toolkit is a
+		     change of its own, not this round's. -->
+		<PackageReference Include="CommunityToolkit.Maui" Version="13.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Falcon.Core\Falcon.Core.csproj" />
+		<ProjectReference Include="..\Falcon.App.Core\Falcon.App.Core.csproj" />
+	</ItemGroup>
+
+	<!-- Vendored USB serial library for Android USB OTG (FTDI adapter — owner
+	     decision, plan §7 item 2). Android-only; mirrors SendIt.csproj's
+	     conditioned reference. MIT — LICENSE kept in libs\UsbSerialForAndroid.Net. -->
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<ProjectReference Include="..\..\libs\UsbSerialForAndroid.Net\UsbSerialForAndroid.Net\UsbSerialForAndroid.Net.csproj" />
+	</ItemGroup>
+
+	<!-- Release-APK signing (owner ask 2026-08-24): the keystore is COMMITTED
+	     (private repo = the backup); the passwords live ONLY in the gitignored
+	     signing.local.props beside this file. Without that file a Release
+	     build simply signs with the debug key - no error on a clean machine. -->
+	<!-- Publish-folder diet, part 2 (owner ask 2026-08-31): SatelliteResourceLanguages
+	     covers only managed resource assemblies; the Windows App SDK's self-contained
+	     payload still publishes ~86 per-language folders of native WinUI .mui string
+	     resources, and referenced projects' pdbs still copy through. en-us must
+	     survive — it is WinUI's fallback resource set. -->
+	<Target Name="PruneLocalizedPublishPayload" AfterTargets="ComputeFilesToPublish"
+	        Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+		<ItemGroup>
+			<ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(ResolvedFileToPublish.Extension)' == '.pdb'" />
+			<ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+			                       Condition="'%(ResolvedFileToPublish.Extension)' == '.mui' And !$([System.String]::Copy('%(ResolvedFileToPublish.RelativePath)').ToLowerInvariant().StartsWith('en-us'))" />
+		</ItemGroup>
+	</Target>
+
+	<Import Project="signing.local.props" Condition="Exists('signing.local.props')" />
+	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' And '$(Configuration)' == 'Release' And '$(AndroidSigningStorePass)' != ''">
+		<AndroidKeyStore>true</AndroidKeyStore>
+		<AndroidSigningKeyStore>falconrc.keystore</AndroidSigningKeyStore>
+		<AndroidSigningKeyAlias>falconrc</AndroidSigningKeyAlias>
+	</PropertyGroup>
+</Project>

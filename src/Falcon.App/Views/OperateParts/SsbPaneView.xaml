@@ -1,0 +1,693 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    SSB pane (GUI rejigger Wave 1, W3 — plan F1-F4, F6, F7). BindingContext
+    is inherited from the page (OperateViewModel). Visibility keys off the
+    CONFIRMED mode (Mode.IsSsbActive) on the root ScrollView.
+    RX and TX frequency rows are BOTH always visible (F1); the per-digit
+    chevrons (+ the Windows keyboard, armed by tapping the readout digits —
+    code-behind, F3a) are the only tuning surface (F3/F4); the STEP display
+    is gone (UI tweaks round 2 B2 — the digit cursor's place is the
+    granularity). Channel selection is a typed 1-2 digit entry + Select
+    (round 15 N2 — it replaced the two per-digit spinners of F7). The
+    channel-stored six (freq rows, MODE, BW, AGC, RXONLY) grey when the
+    confirmed channel is not 00 (F6) — enforced in the ViewModels.
+    The coupler card moved to the spine (W2 owns it).
+
+    UI tweaks round 3: the CHANNEL card sits ABOVE the frequency card (S1)
+    under a static "Channel" heading (S2); the split button reads "Split"
+    (Q1); each frequency readout row is CENTERED with a decimal point
+    between the 1 MHz and 100 kHz digits (Q2/Q4) and keeps its "MHz" label
+    (Q3); the modem picker is horizontal (O1); and every segment-class
+    button in the Signal and Operate cards carries the shared SegmentWidth
+    (N2/N3) while chevron-class buttons (digit chevrons, the modem
+    chevrons, BFO ±) stay 44 (N5).
+
+    UI tweaks round 5: the FREQUENCY digit chevrons narrow to 40 dp wide
+    (height still 44) and the digit cells gain 4 dp between them (BA) —
+    a one-dimension, strips-only deviation from the ≥44 dp rule, recorded
+    in docs/ui.md. Every other chevron-class button (channel spinners,
+    modem ◀/▶, BFO ±) stays 44. The modem display renders the K7
+    "n: name" transform of the confirmed echo (BB) at a fixed width.
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             xmlns:behaviors="clr-namespace:Falcon.App.Behaviors"
+             x:Class="Falcon.App.Views.OperateParts.SsbPaneView"
+             x:DataType="vm:OperateViewModel">
+
+    <ScrollView IsVisible="{Binding Mode.IsSsbActive}">
+        <VerticalStackLayout Spacing="{OnIdiom Default=10, Phone=8}">
+
+            <!-- ==== Channel card (S1: above the frequency card) ==== -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <!-- S2: a STATIC heading. The spinner digits below ARE the
+                         current-channel display, so the old bound "CH 00"
+                         heading (Channel.CurrentChannelText) is gone. -->
+                    <Label Text="Channel" Style="{StaticResource CardHeading}" />
+
+                    <!-- ROUND 15 N2 (owner: "the channel spinners are painful
+                         — let me type the number"). The per-digit ▲/▼
+                         spinners are GONE. OWNER 2026-08-23: the new-channel
+                         entry moved BENEATH the digits, left-justified on the
+                         RXONLY row — row 1 is the two big digits ALONE (the
+                         CURRENT channel, display only; they still move only
+                         on the CHAN answer). The "New channel" caption was
+                         DROPPED with the move and the entry narrowed to
+                         ValueWidthNarrow (owner, same ruling: it only holds
+                         2 digits) — an owner-sanctioned exception to D8's
+                         labels-left rule; the static 00-99 placeholder is
+                         the label. This supersedes the round-15 Q2 two-row
+                         arithmetic: without the caption the merged row is
+                         entry 64 + Select 72 + 6 + 12 + rx-only 241
+                         = ≈ 395 dp ≤ 448 (the AH1 budget). A Select still
+                         sends CH nn + SH exactly as before. -->
+                    <HorizontalStackLayout Spacing="0">
+                        <Label Text="{Binding Ssb.Channel.TensText}" Style="{StaticResource SpinnerDigit}" />
+                        <Label Text="{Binding Ssb.Channel.UnitsText}" Style="{StaticResource SpinnerDigit}" />
+                    </HorizontalStackLayout>
+
+                    <!-- The entry row: new channel LEFT (owner 2026-08-23),
+                         RXONLY (F6) RIGHT — channel-stored, one of the six;
+                         00-gated via the command; highlight only from the
+                         confirmed report; still right-aligned (C1). -->
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                        <HorizontalStackLayout Spacing="6">
+                            <Entry Keyboard="Numeric" MaxLength="2" Placeholder="00-99"
+                                   WidthRequest="{StaticResource ValueWidthNarrow}"
+                                   Text="{Binding Ssb.Channel.ChannelInput, Mode=TwoWay}"
+                                   SemanticProperties.Description="New channel entry">
+                                <Entry.Behaviors>
+                                    <behaviors:SelectAllOnFocusBehavior />
+                                </Entry.Behaviors>
+                            </Entry>
+                            <Button Text="Select" Style="{StaticResource Segment}"
+                                    WidthRequest="{StaticResource SegmentWidth}"
+                                    Command="{Binding Ssb.Channel.SelectEnteredCommand}"
+                                    SemanticProperties.Description="Select channel" />
+                        </HorizontalStackLayout>
+                        <HorizontalStackLayout Grid.Column="2" Spacing="6" HorizontalOptions="End" VerticalOptions="Center">
+                        <Label Text="Receive only" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <Button Text="Yes" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Channel.SetRxOnlyCommand}" CommandParameter="Yes"
+                                SemanticProperties.Description="Set channel receive-only">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Channel.IsRxOnlyYes}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="No" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Channel.SetRxOnlyCommand}" CommandParameter="No"
+                                SemanticProperties.Description="Clear channel receive-only">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Channel.IsRxOnlyNo}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <!-- The refusal, in prose (I-2). ErrorCaption + IsVisible
+                         on HasInputError is the app's standing input-error
+                         idiom (SsbSettingsPaneView's RF-gain row and seven
+                         other panes). -->
+                    <Label Style="{StaticResource ErrorCaption}" Text="{Binding Ssb.Channel.InputError}"
+                           IsVisible="{Binding Ssb.Channel.HasInputError}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== Frequency card ==== -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Frequency" Style="{StaticResource CardHeading}" VerticalOptions="Center" />
+                        <!-- Q1/B1: static text — the accent highlight alone
+                             says split is active (no value-dependent label
+                             swap, rule K). -->
+                        <Button Grid.Column="1" Text="Split" Style="{StaticResource Segment}"
+                                WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Vfo.ToggleSplitCommand}"
+                                SemanticProperties.Description="Toggle split RX/TX">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Vfo.IsSplit}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </Grid>
+
+                    <!-- RX row. Q4: the whole readout row (label + digits +
+                         MHz) is CENTERED; the Rx/Tx labels keep a shared
+                         fixed column so the two rows stay aligned with each
+                         other. The digit strip scrolls horizontally on
+                         phones instead of shrinking its ≥44dp chevron
+                         targets. On Windows, tapping the digits arms the
+                         keyboard VFO (gesture added in code-behind, F3a).
+
+                         ROUND-4 AH1 (defect fix): the round-3 row was 499.5 dp
+                         wide (UIA), so below ~548 dp of window it overflowed
+                         its centred layout on BOTH sides — the last digit was
+                         clipped and the MHz label fell outside entirely. The
+                         30-pt digits are fixed by constraint, so the width
+                         came out of the packing instead: the Rx/Tx column
+                         drops 52 → 18 dp (the label is two characters), the
+                         row spacing 8 → 4, the inter-digit spacing 2 → 0, the
+                         100 kHz group gap 12 → 8 and the decimal point's
+                         margin 4 → 0. Row total 431.5 dp (measured).
+
+                         ROUND-5 BA (owner: "narrow the buttons"): the digit
+                         strips were visually crowded, so the CELLS gain 4 dp
+                         of air between them and the chevrons pay for it —
+                         WidthRequest 44 → 40 on the digit chevrons ONLY
+                         (HeightRequest stays 44; the channel spinners on the
+                         card above stay 44 wide, they already have 8 dp
+                         between them). Cell arithmetic: 8×40 + 7×4 = 348 dp
+                         against round 4's 8×44 + 7×0 = 352, so the AH1 budget
+                         gets 4 dp BACK rather than spending any. Measured row
+                         total after the change: see docs/ui.md (UIA, desktop
+                         default and 500 dp) — still inside the 437 dp of card
+                         content a 500-dp desktop window leaves and the 448 dp
+                         the bench phone leaves. The deliberate 40-dp
+                         deviation from the ≥44 dp touch-target rule is ONE
+                         dimension only and is recorded in docs/ui.md. Below
+                         ~493 dp of desktop window the row is wider than its
+                         card again — the phone idiom degrades by scrolling
+                         the strip, the desktop does not. -->
+
+                    <HorizontalStackLayout Spacing="4" HorizontalOptions="Center">
+                        <!-- B3/U2: static row labels — Rx / Tx never swap. -->
+                        <Label Text="Rx" WidthRequest="18" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <ScrollView Orientation="{OnIdiom Default=Neither, Phone=Horizontal}"
+                                    HorizontalScrollBarVisibility="Never">
+                            <!-- BA1: 4 dp between digit CELLS (the strip's own
+                                 Spacing; each item is the optional decimal
+                                 point plus one 40-dp cell). The index-5 group
+                                 margin rides on top of it, unchanged. -->
+                            <HorizontalStackLayout x:Name="RxDigitStrip" Spacing="4"
+                                                   BindableLayout.ItemsSource="{Binding Ssb.Vfo.RxDigits}"
+                                                   SemanticProperties.Description="Receive frequency digits">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:VfoDigitViewModel">
+                                        <HorizontalStackLayout Spacing="0">
+                                            <!-- Q2: a decimal POINT between digit
+                                                 1 and digit 2 (1 MHz / 100 kHz) —
+                                                 "12.345 678". The glyph is VISUAL
+                                                 ONLY: it is its own element beside
+                                                 the digit cell, so the VM's eight
+                                                 digit indices are untouched and no
+                                                 chevron hit target moves. It
+                                                 replaces the old index-2 margin
+                                                 gap; the index-5 gap stays. -->
+                                            <Label Text="." Style="{StaticResource SpinnerDigit}"
+                                                   VerticalOptions="Center"
+                                                   Margin="0" IsVisible="False">
+                                                <Label.Triggers>
+                                                    <DataTrigger TargetType="Label" Binding="{Binding Index}" Value="2">
+                                                        <Setter Property="IsVisible" Value="True" />
+                                                    </DataTrigger>
+                                                </Label.Triggers>
+                                            </Label>
+                                            <VerticalStackLayout Spacing="0">
+                                                <VerticalStackLayout.Triggers>
+                                                    <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding Index}" Value="5">
+                                                        <Setter Property="Margin" Value="8,0,0,0" />
+                                                    </DataTrigger>
+                                                </VerticalStackLayout.Triggers>
+                                                <!-- BA1: 40 dp WIDE (height stays 44). -->
+                                                <Button Text="▲" FontSize="10" Padding="0"
+                                                        WidthRequest="40" HeightRequest="44"
+                                                        Command="{Binding UpCommand}" IsEnabled="{Binding CanBump}"
+                                                        SemanticProperties.Description="{Binding UpDescription}" />
+                                                <Label Text="{Binding Text}" Style="{StaticResource SpinnerDigit}">
+                                                    <Label.Triggers>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding IsCursor}" Value="True">
+                                                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource EditCursorLight}, Dark={StaticResource EditCursorDark}}" />
+                                                        </DataTrigger>
+                                                    </Label.Triggers>
+                                                </Label>
+                                                <Button Text="▼" FontSize="10" Padding="0"
+                                                        WidthRequest="40" HeightRequest="44"
+                                                        Command="{Binding DownCommand}" IsEnabled="{Binding CanBump}"
+                                                        SemanticProperties.Description="{Binding DownDescription}" />
+                                            </VerticalStackLayout>
+                                        </HorizontalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </HorizontalStackLayout>
+                        </ScrollView>
+                        <!-- Q3: the MHz unit stays at the right of the strip. -->
+                        <!-- Round 10 (§3): unit labels are Caption-tier. -->
+                        <Label Text="MHz" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                    </HorizontalStackLayout>
+
+                    <!-- TX row — always visible (F1); its chevrons are live
+                         only while split (radio-reported or override-armed).
+                         Same AH1 packing as the RX row above, so the two
+                         rows stay aligned with each other. -->
+                    <HorizontalStackLayout Spacing="4" HorizontalOptions="Center">
+                        <Label Text="Tx" WidthRequest="18" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <ScrollView Orientation="{OnIdiom Default=Neither, Phone=Horizontal}"
+                                    HorizontalScrollBarVisibility="Never">
+                            <!-- BA1: same 4 dp cell spacing as the RX strip. -->
+                            <HorizontalStackLayout x:Name="TxDigitStrip" Spacing="4"
+                                                   BindableLayout.ItemsSource="{Binding Ssb.Vfo.TxDigits}"
+                                                   SemanticProperties.Description="Transmit frequency digits">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:VfoDigitViewModel">
+                                        <HorizontalStackLayout Spacing="0">
+                                            <Label Text="." Style="{StaticResource SpinnerDigit}"
+                                                   VerticalOptions="Center"
+                                                   Margin="0" IsVisible="False">
+                                                <Label.Triggers>
+                                                    <DataTrigger TargetType="Label" Binding="{Binding Index}" Value="2">
+                                                        <Setter Property="IsVisible" Value="True" />
+                                                    </DataTrigger>
+                                                </Label.Triggers>
+                                            </Label>
+                                            <VerticalStackLayout Spacing="0">
+                                                <VerticalStackLayout.Triggers>
+                                                    <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding Index}" Value="5">
+                                                        <Setter Property="Margin" Value="8,0,0,0" />
+                                                    </DataTrigger>
+                                                </VerticalStackLayout.Triggers>
+                                                <!-- BA1: 40 dp WIDE (height stays 44). -->
+                                                <Button Text="▲" FontSize="10" Padding="0"
+                                                        WidthRequest="40" HeightRequest="44"
+                                                        Command="{Binding UpCommand}" IsEnabled="{Binding CanBump}"
+                                                        SemanticProperties.Description="{Binding UpDescription}" />
+                                                <Label Text="{Binding Text}" Style="{StaticResource SpinnerDigit}">
+                                                    <Label.Triggers>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding IsCursor}" Value="True">
+                                                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource EditCursorLight}, Dark={StaticResource EditCursorDark}}" />
+                                                        </DataTrigger>
+                                                    </Label.Triggers>
+                                                </Label>
+                                                <Button Text="▼" FontSize="10" Padding="0"
+                                                        WidthRequest="40" HeightRequest="44"
+                                                        Command="{Binding DownCommand}" IsEnabled="{Binding CanBump}"
+                                                        SemanticProperties.Description="{Binding DownDescription}" />
+                                            </VerticalStackLayout>
+                                        </HorizontalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </HorizontalStackLayout>
+                        </ScrollView>
+                        <!-- Round 10 (§3): unit labels are Caption-tier. -->
+                        <Label Text="MHz" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                    </HorizontalStackLayout>
+
+                    <!-- B2: the STEP chip is gone — the digit cursor's place
+                         is the tuning granularity now (the VM StepText still
+                         mirrors the radio's step for the keyboard commands). -->
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== Signal card ==== -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Signal" Style="{StaticResource CardHeading}" />
+                    <!-- G1: label left, control group right (the ALE idiom) —
+                         applied to every row in this card. N2: every segment
+                         button in the card carries the shared SegmentWidth,
+                         so the modulation / bandwidth / AGC rows are one
+                         uniform grid. -->
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Modulation" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                        <Button Text="USB" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetModulationCommand}" CommandParameter="Usb"
+                                SemanticProperties.Description="Select USB modulation">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsUsbActive}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="LSB" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetModulationCommand}" CommandParameter="Lsb"
+                                SemanticProperties.Description="Select LSB modulation">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsLsbActive}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="AME" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetModulationCommand}" CommandParameter="Ame"
+                                SemanticProperties.Description="Select AME modulation">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsAmeActive}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="CW" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetModulationCommand}" CommandParameter="Cw"
+                                SemanticProperties.Description="Select CW modulation">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsCwActive}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="FM" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetModulationCommand}" CommandParameter="Fm"
+                                SemanticProperties.Description="Select FM modulation">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsFmActive}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <!-- BW chips: the MEASURED per-modulation sets, keyed to the
+                         CONFIRMED modulation (empty while unconfirmed). The
+                         container greys with the F6 00-gate (ChoiceItem
+                         commands have no CanExecute of their own). E1: no
+                         "radio:" readout — the highlighted chip IS the
+                         confirmed value. -->
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Bandwidth" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               IsEnabled="{Binding Ssb.Signal.IsBandwidthEnabled}"
+                                               BindableLayout.ItemsSource="{Binding Ssb.Signal.BandwidthChoices}"
+                                               SemanticProperties.Description="Bandwidth choices">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ChoiceItem">
+                                    <Button Text="{Binding Value}" Style="{StaticResource Segment}"
+                                            WidthRequest="{StaticResource SegmentWidth}"
+                                            Command="{Binding SelectCommand}"
+                                            SemanticProperties.Description="{Binding Value}">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsActive}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                                <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="AGC" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End"
+                                               IsEnabled="{Binding Ssb.Signal.AreControlsEnabled}"
+                                               BindableLayout.ItemsSource="{Binding Ssb.Signal.AgcChoices}"
+                                               SemanticProperties.Description="AGC choices">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ChoiceItem">
+                                    <Button Text="{Binding Value}" Style="{StaticResource Segment}"
+                                            WidthRequest="{StaticResource SegmentWidth}"
+                                            Command="{Binding SelectCommand}"
+                                            SemanticProperties.Description="{Binding Value}">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IsActive}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                                <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==== Operate card (F8 / E6) ====
+                 Frequently-used OPERATIONAL controls: the squelch peers
+                 (SQ/FMSQ/DGT_S — shown by the confirmed modulation / DV per
+                 the E6 matrix), squelch level, DV, compression, modem select
+                 and BFO (CW only). These are GLOBAL radio state, NOT
+                 channel-stored — deliberately NOT 00-gated: the card enables on
+                 Ready + confirmed SSB alone. Highlight/value render only from
+                 confirmed reports. Under DEMO the buttons send + log but the
+                 display honestly stays "—" (the canned script does not answer
+                 these). N3: every segment button here carries the shared
+                 SegmentWidth. -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10" IsEnabled="{Binding Ssb.Signal.AreOperationalControlsEnabled}">
+                    <Label Text="Operate" Style="{StaticResource CardHeading}" />
+
+                    <!-- Analog squelch — USB/LSB/AME/CW (E6). -->
+                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Ssb.Signal.ShowAnalogSquelch}">
+                        <Label Text="Squelch" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                        <Button Text="On" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetSquelchCommand}" CommandParameter="On"
+                                SemanticProperties.Description="Analog squelch on">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsSquelchOn}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="Off" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetSquelchCommand}" CommandParameter="Off"
+                                SemanticProperties.Description="Analog squelch off">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsSquelchOff}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <!-- FM squelch — FM (E6). -->
+                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Ssb.Signal.ShowFmSquelch}">
+                        <Label Text="FM squelch" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                        <Button Text="On" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetFmSquelchCommand}" CommandParameter="On"
+                                SemanticProperties.Description="FM squelch on">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsFmSquelchOn}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="Off" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetFmSquelchCommand}" CommandParameter="Off"
+                                SemanticProperties.Description="FM squelch off">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsFmSquelchOff}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <!-- Digital squelch — shown while DV is confirmed ON (E6). -->
+                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Ssb.Signal.ShowDigitalSquelch}">
+                        <Label Text="Digital squelch" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                        <Button Text="On" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetDigitalSquelchCommand}" CommandParameter="On"
+                                SemanticProperties.Description="Digital squelch on">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsDigitalSquelchOn}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="Off" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetDigitalSquelchCommand}" CommandParameter="Off"
+                                SemanticProperties.Description="Digital squelch off">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsDigitalSquelchOff}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <!-- Squelch level. -->
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Squelch level" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                        <Button Text="Low" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetSquelchLevelCommand}" CommandParameter="LO"
+                                SemanticProperties.Description="Squelch level low">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsSquelchLevelLow}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="Med" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetSquelchLevelCommand}" CommandParameter="MED"
+                                SemanticProperties.Description="Squelch level medium">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsSquelchLevelMedium}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="High" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetSquelchLevelCommand}" CommandParameter="HI"
+                                SemanticProperties.Description="Squelch level high">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsSquelchLevelHigh}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <!-- Digital voice — shown in all modulations (old-app behavior). -->
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Digital voice" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                        <Button Text="On" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetDigitalVoiceCommand}" CommandParameter="On"
+                                SemanticProperties.Description="Digital voice on">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsDvOn}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="Off" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetDigitalVoiceCommand}" CommandParameter="Off"
+                                SemanticProperties.Description="Digital voice off">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsDvOff}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <!-- Compression. -->
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Compression" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                        <Button Text="On" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetCompressionCommand}" CommandParameter="On"
+                                SemanticProperties.Description="Voice compression on">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsCompressionOn}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="Off" Style="{StaticResource Segment}" WidthRequest="{StaticResource SegmentWidth}"
+                                Command="{Binding Ssb.Signal.SetCompressionCommand}" CommandParameter="Off"
+                                SemanticProperties.Description="Voice compression off">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding Ssb.Signal.IsCompressionOff}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentColor}" />
+                                    <Setter Property="TextColor" Value="{StaticResource OnAccentColor}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <!-- D1/D2 + O1: modem preset picker wheel, HORIZONTAL —
+                         chevron, Option-B display, chevron. The chevrons are
+                         CHEVRON-class (44 dp — the modem chevrons are NOT the
+                         round-5 BA narrowing, which is the frequency digit
+                         strips only), the display keeps its fixed width (K).
+                         The display renders the confirmed ActiveModem echo
+                         through the round-5 K7 transform ("OFF" → "OFF";
+                         "1 T39" → "1: T39"; any other confirmed echo
+                         verbatim; "—" until reported) — no separate readout.
+                         The 96-dp width is sized to the widest legal text
+                         ("6: XXXX"-class) and never moves with the value.
+                         A spin sends MODEM <n> / MODEM OF; the display moves
+                         only on the echo.
+                         Round 8 (ED): bound to the CROSS-MODE ModemViewModel
+                         — the same instance behind the ALE and HOP rows. -->
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Modem" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                            <Button Text="◀" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding Modem.ModemDownCommand}"
+                                    SemanticProperties.Description="Previous modem preset" />
+                            <!-- Round 10 (§3) DEVIATION, recorded: this display
+                                 is on the ValueWidthWide consumer manifest, but
+                                 ChevronGeometryGuardTests.TheModemDisplay_
+                                 KeepsItsFixed96DpWidth reads THIS attribute as
+                                 an integer and that suite is gate-pinned
+                                 UNTOUCHED for P2 — a StaticResource reference
+                                 reads back as "no width" and fails it. The
+                                 literal stays until that pin can resolve keys
+                                 (the HOP pane's twin, which no guard reads,
+                                 took the key). -->
+                            <Border Style="{StaticResource ValueDisplay}" WidthRequest="96"
+                                    SemanticProperties.Description="Active modem preset">
+                                <Label Style="{StaticResource ValueDisplayText}"
+                                       Text="{Binding Modem.ModemDisplayText}" />
+                            </Border>
+                            <Button Text="▶" FontSize="10" Padding="0"
+                                    WidthRequest="44" HeightRequest="44"
+                                    Command="{Binding Modem.ModemUpCommand}"
+                                    SemanticProperties.Description="Next modem preset" />
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <!-- BFO offset — CW only (E6); ±1 kHz chevrons over ±4 kHz.
+                         Option-B confirmed display, fixed width (K). N5: the ±
+                         buttons are CHEVRON-class — 44 dp, so the explicit
+                         minimum overrides the Segment style's wider one. -->
+                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding Ssb.Signal.ShowBfo}">
+                        <Label Text="BFO offset" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" HorizontalOptions="End">
+                        <Button Text="−" Style="{StaticResource Segment}"
+                                WidthRequest="44" MinimumWidthRequest="44"
+                                Command="{Binding Ssb.Signal.BfoDownCommand}"
+                                SemanticProperties.Description="BFO offset down" />
+                        <!-- Round 10 (§3): the named width key replaces the
+                             literal, and the inline Consolas copy is deleted —
+                             ValueDisplayText carries it in-style now. -->
+                        <Border Style="{StaticResource ValueDisplay}" WidthRequest="{StaticResource ValueWidthStd}"
+                                SemanticProperties.Description="BFO offset value">
+                            <Label Style="{StaticResource ValueDisplayText}"
+                                   Text="{Binding Ssb.Signal.BfoText}" />
+                        </Border>
+                        <Button Text="+" Style="{StaticResource Segment}"
+                                WidthRequest="44" MinimumWidthRequest="44"
+                                Command="{Binding Ssb.Signal.BfoUpCommand}"
+                                SemanticProperties.Description="BFO offset up" />
+                        </HorizontalStackLayout>
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentView>

@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    About page (clone round 12 §6 F6). A ROUTED page — the tab bar stays FOUR
+    tabs; this is pushed from the title-bar About button and the platform's own
+    back gesture returns.
+
+    The cable / connector / pinout facts come from the OLD WinForms app's About
+    box and are carried VERBATIM as constants in Falcon.App.Core's AboutContent
+    (which also carries the ledger of what was adjusted and what was dropped).
+    They are bound with x:Static rather than spelled here so the host test suite
+    — which has no MAUI head and cannot read a rendered page — can pin them
+    byte-exact, and so a later edit cannot change the wiring facts in the markup
+    without changing what the tests read.
+
+    The VERSION is the running app's own (AppInfo), set in code-behind.
+
+    ROUND 13 C1 (backlog item 12, owner 2026-08-19) — three changes, one page:
+
+    1. THIS PAGE'S OWN Shell.TitleView, [app icon][About]. That is the whole
+       recursion fix: the shell's title view carries an About button, and while
+       About INHERITED it, pressing it pushed another About onto the stack,
+       without limit. A page-level TitleView overrides the shell's for this page
+       only, so the button is simply not there to press — and the page's
+       Title="About" becomes what the operator reads. AppShell.xaml is NOT
+       touched (every other page still gets the button).
+    2. Shell.TabBarIsVisible="False" locks out the tab bar while About is up
+       (Windows: the top strip; Android: the bottom bar). It is an ATTACHED
+       property of this page, so it dies with the page — a navigation that
+       replaces About restores the bar by construction.
+    3. The PICTURE from the old app's About box (falconrc_about.png, extracted
+       from About.resx's logoPictureBox.Image). AspectFit + a MAXIMUM width of
+       507 — the old box's rendered width — so it never upscales past its
+       intrinsic box, and shrinks to fit a phone.
+
+    The credit line is a BYLINE now, not a "based on" notice (the owner is
+    W6HOS). Its year is the CURRENT year, composed in code-behind from
+    AboutContent.CreditPrefix — hence x:Name here rather than an x:Static bind.
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:Falcon.App.Core.ViewModels;assembly=Falcon.App.Core"
+             x:Class="Falcon.App.Views.AboutPage"
+             Title="About"
+             Shell.TabBarIsVisible="False">
+
+    <Shell.TitleView>
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+            <Image Source="falconrc_icon.png"
+                   HeightRequest="24"
+                   WidthRequest="24"
+                   VerticalOptions="Center"
+                   SemanticProperties.Description="FalconRC" />
+            <Label Grid.Column="1" Text="About" Style="{StaticResource StatusText}" VerticalOptions="Center" />
+        </Grid>
+    </Shell.TitleView>
+
+    <ScrollView>
+        <!-- 2026-08-23 (owner ask, with SettingsPage): the root stack FILLS on
+             every idiom — Default=Start shrank the cards to content width on
+             desktop. The photo's own 507 MAXIMUM cap stays: the cards span,
+             the picture still never upscales past its intrinsic box. -->
+        <VerticalStackLayout Padding="{OnIdiom Default=16, Phone=12}" Spacing="12"
+                             HorizontalOptions="Fill">
+
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="8">
+                    <Image Source="falconrc_about.png"
+                           Aspect="AspectFit"
+                           MaximumWidthRequest="507"
+                           SemanticProperties.Description="Photograph of the Falcon radio family and its accessories" />
+                    <Label Text="FalconRC" Style="{StaticResource CardHeading}" />
+                    <Label x:Name="VersionLabel" Style="{StaticResource Caption}" />
+                    <Label Text="{x:Static vm:AboutContent.Description}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="{x:Static vm:AboutContent.CableHeading}" Style="{StaticResource CardHeading}" />
+                    <Label Text="{x:Static vm:AboutContent.CableRecommended}" />
+                    <Label Text="{x:Static vm:AboutContent.CableAlternate}" />
+                    <Label Text="{x:Static vm:AboutContent.MatingConnector}" />
+                    <Label Text="{x:Static vm:AboutContent.PinoutGround}" />
+                    <Label Text="{x:Static vm:AboutContent.PinoutTx}" />
+                    <Label Text="{x:Static vm:AboutContent.PinoutRx}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- OWNER 2026-08-23: the old About box's keyboard-tuning tip,
+                 back and reworded to this app's own gesture (the AboutContent
+                 ledger has the history). WINDOWS ONLY: Android has no
+                 keyboard path (ui.md — "Android has no keyboard path"). -->
+            <Label Text="{x:Static vm:AboutContent.FrequencyTip}"
+                   Style="{StaticResource Caption}"
+                   IsVisible="{OnPlatform Default=False, WinUI=True}" />
+
+            <Label x:Name="CreditLabel" Style="{StaticResource Caption}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,63 @@
+# CI — Falcon Radio Controller
+#
+# Windows runner only: the MAUI head's windows TFM is conditioned on a Windows
+# host, and the android TFM builds fine on Windows (compile only — no device,
+# no emulator, no deploy; live-radio testing happens on the bench, plan §5).
+#
+# The vendored libs/UsbSerialForAndroid.Net project is NOT built standalone:
+# it multi-targets net9.0-android + net10.0-android and only the net10 TFM is
+# expected to have a workload here. Falcon.App's android build compiles it via
+# nearest-TFM ProjectReference resolution, which is the only way it ships.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Match the dev box: .NET SDK 10 (10.0.2xx line).
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # MAUI + Android workloads. `dotnet workload install` resolves the
+      # manifest versions matching the installed SDK.
+      - name: Install MAUI workloads
+        run: dotnet workload install maui-windows android
+
+      # --- Solution integrity: a typo'd Project Path in the .slnx must fail CI,
+      #     not the next IDE load. Builds every solution member (the vendored
+      #     lib is deliberately not a member — see header note).
+      - name: Build solution
+        run: dotnet build Falcon-Radio-Controller.slnx -c Release
+
+      # --- Falcon.Core: both TFMs -------------------------------------------
+      - name: Build Falcon.Core (net10.0)
+        run: dotnet build src/Falcon.Core/Falcon.Core.csproj -f net10.0 -c Release
+
+      - name: Build Falcon.Core (net10.0-android)
+        run: dotnet build src/Falcon.Core/Falcon.Core.csproj -f net10.0-android -c Release
+
+      # --- Falcon.App: both TFMs --------------------------------------------
+      - name: Build Falcon.App (Windows)
+        run: dotnet build src/Falcon.App/Falcon.App.csproj -f net10.0-windows10.0.19041.0 -c Release
+
+      - name: Build Falcon.App (Android — compile only, no deploy)
+        run: dotnet build src/Falcon.App/Falcon.App.csproj -f net10.0-android -c Release
+
+      # --- Tests (host-only net10.0; see docs/tests.md) ----------------------
+      - name: Test Falcon.Core.Tests
+        run: dotnet test tests/Falcon.Core.Tests/Falcon.Core.Tests.csproj -c Release
+
+      - name: Test Falcon.App.Tests
+        run: dotnet test tests/Falcon.App.Tests/Falcon.App.Tests.csproj -c Release

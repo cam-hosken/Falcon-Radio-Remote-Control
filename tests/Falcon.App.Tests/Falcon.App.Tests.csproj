@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Host-only (net10.0). The Stage 0 note offered two ways to test app-layer
+      code that a net10.0 test host cannot reach through the MAUI head
+      (Falcon.App targets only android/windows TFMs): source-link the files,
+      or extract them into a class library. Stage 3 chose the CLASS LIBRARY:
+      src/Falcon.App.Core (net10.0 + net10.0-android) holds the session
+      layer, the Q9 surfaces, and every ViewModel — this project references
+      the exact assembly the app ships, no source-linking, no platform-gated
+      shims. Falcon.App itself keeps only MAUI-typed code (pages, DI wiring,
+      the Android stub), validated by the Stage gate's launch check and the
+      manual bench checklist.
+
+      Doctrine (plan §5, docs/tests.md): tests drive the REAL Prc138Radio
+      over a line-injecting transport — replay of captured lines, never a
+      scripted radio double that answers commands.
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Falcon.App.Core\Falcon.App.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>
